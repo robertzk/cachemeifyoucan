@@ -6,7 +6,7 @@ waiting for data or other large downloads. This package offers a caching
 layer for arbitrary functions that relies on a database backend.
 
 Have some computationally expensive function? If you have [set up this package
-correctly](#Installation), you should be able to simply write:
+correctly](#installation), you should be able to simply write:
 
 ```R
 expensive_function <- cache(expensive_function)
