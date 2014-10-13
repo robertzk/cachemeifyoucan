@@ -47,3 +47,6 @@ S3, a flat file. For more complex strategies, it will be a little bit of work
 to set up the correct caching call, but the resulting performance
 benefits should be worth it.
 
+
+
+[![Build Status](https://travis-ci.org/robertzk/cachemeifyoucan.svg?branch=master)](https://travis-ci.org/robertzk/cachemeifyoucan)
