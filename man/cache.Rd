@@ -2,7 +2,7 @@
 % Please edit documentation in R/cache.R
 \name{cache}
 \alias{cache}
-\title{Cache layer closure}
+\title{Closure of a cache layer}
 \usage{
 cache(fn, prefix, salt, key = "loan_id", root = syberia_root())
 }
@@ -19,6 +19,6 @@ cache(fn, prefix, salt, key = "loan_id", root = syberia_root())
 a function with a cache layer of database backend.
 }
 \description{
-Cache layer closure
+Closure of a cache layer
 }
 
