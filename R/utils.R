@@ -176,6 +176,8 @@ translate_column_names <- function(names, dbconn) {
 #' @param df data.frame. The data to write.
 write_data_safely <- function(dbconn, tblname, df) {
   if (is.null(df)) return(FALSE)
+  if (!is.data.frame(df)) return(FALSE)
+  if (nrow(df) == 0) return(FALSE)
 
   id_cols <- grep('(_|^)id$', colnames(df), value = TRUE)
   if (length(id_cols) == 0)
