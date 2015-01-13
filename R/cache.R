@@ -16,6 +16,7 @@ cache <- function(fn, prefix, salt, key = "loan_id", root = syberia_root()) {
 
   get_new_key <- function(dbconn, salt, ids, table_name) {
     if (length(ids) == 0) return(integer(0))
+    if (!dbExistsTable(dbconn, tbl_name)) return(ids)
     id_column_name <- get_hashed_names(key)
     present_ids <- dbGetQuery(dbconn, paste0(
       "SELECT ", id_column_name, " FROM ", table_name))[[1]]
@@ -29,7 +30,7 @@ cache <- function(fn, prefix, salt, key = "loan_id", root = syberia_root()) {
       stop("NA is returned in user-provided function", call. = FALSE)
   }
 
-  tbl_name <- paste0(prefix, digest(salt))
+  tbl_name <- paste0(prefix, "_", digest(salt))
   dbconn <- db_for_syberia_project(root)
 
   function(...) {
