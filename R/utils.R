@@ -265,12 +265,19 @@ write_data_safely <- function(dbconn, tblname, df) {
     old_options <- options(scipen = 20, digits = 20) 
     on.exit(options(old_options))
 
-    lapply(slices, function(slice) {
-      if (!append) dbWriteTable(dbconn, tblname, df[slice, ], row.names = 0)
-      else RPostgreSQL::postgresqlpqExec(dbconn, build_insert_query(tblname, df[slice, ]))
-    })
+#    lapply(slices, function(slice) {
+#      if (!append) dbWriteTable(dbconn, tblname, df[slice, ], row.names = 0)
+#      else RPostgreSQL::postgresqlpqExec(dbconn, build_insert_query(tblname, df[slice, ]))
+#    })
+    for (slice in slices) {
+      if (!append)  {
+        dbWriteTable(dbconn, tblname, df[slice, ], row.names = 0)
+        append <- TRUE
+      } else {
+        RPostgreSQL::postgresqlpqExec(dbconn, build_insert_query(tblname, df[slice, ]))
+    }}
 
-    verify_integrity_of_cached_data(df, tblname)
+    #verify_integrity_of_cached_data(df, tblname)
     # To make sure the above bug is addressed, we compare the data stored in
     # the database to the data.frame.
   }

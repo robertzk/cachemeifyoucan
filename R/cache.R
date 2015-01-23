@@ -58,12 +58,13 @@ cache <- function(fn, prefix, salt, dbconn, key = "loan_id", root = syberia_root
     }
     # Error check on the new data computed from the user-provided function
     error_fn(data_new)
-    browser()
     # Grab the old data (empty data frame when length 0)
     if (length(ids_old) == 0) {
       print("No data is cached")
       data_old <- data.frame()
     } else {
+      print("These are cached:")
+      print(ids_old)
       if (exists(".select", inherits = FALSE) && dbExistsTable(dbconn, tbl_name)) 
         data_old <- dbGetQuery(dbconn,
           paste("SELECT ", 
@@ -78,14 +79,19 @@ cache <- function(fn, prefix, salt, dbconn, key = "loan_id", root = syberia_root
       colnames_check <- setdiff(colnames(data_new), key)
     else if (exists(".select", inherits = FALSE))
       colnames_check <- .select
-    if (!exists("colnames_check", inherits = FALSE)) 
+    if (!exists("colnames_check", inherits = FALSE)) {
       ids_missing <- sapply(ids_old, 
-        function(x) switch(any(is.na(data_old[x, ])), NULL, x))
-    else
+        function(x) switch(2 - any(is.na(data_old[x, ])), x, NA))
+      ids_missing <- ids_missing[!is.na(ids_missing)]
+    } else {
       ids_missing <- sapply(ids_old, 
-        function(x) switch(any(is.na(data_old[x, colnames_check])), NULL, x))
+        function(x) switch(2 - any(is.na(data_old[x, colnames_check])), x, NA))
+      ids_missing <- ids_missing[!is.na(ids_missing)]
+    }
     data_old <- data.frame()
     if (length(ids_missing) > 0) {
+      print("These have missing columns:")
+      print(ids_missing)
       args[[key]] <- ids_missing
       data_old <- do.call(fn, args)
     }
