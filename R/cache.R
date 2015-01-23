@@ -45,6 +45,8 @@ cache <- function(fn, prefix, salt, dbconn, key = "loan_id", root = syberia_root
     # Grab the new/old ids (might be integer(0))
     ids_new <- get_new_key(dbconn, salt, args[[key]], tbl_name)
     ids_old <- setdiff(c(args[[key]]), ids_new)
+#    print(ids_new)
+#    print(ids_old)
 #    print(paste(rep("#", 100), collapse=""))
     # Work on the new data
     if (length(ids_new) == 0) {
@@ -56,6 +58,7 @@ cache <- function(fn, prefix, salt, dbconn, key = "loan_id", root = syberia_root
     }
     # Error check on the new data computed from the user-provided function
     error_fn(data_new)
+    browser()
     # Grab the old data (empty data frame when length 0)
     if (length(ids_old) == 0) {
       print("No data is cached")
