@@ -8,7 +8,7 @@
 #i @import avant syberiaStructure
 #' @return a function with a cache layer of database backend.
 #' @export
-cache <- function(fn, prefix, salt, key = "loan_id", root = syberia_root()) {
+cache <- function(fn, prefix, salt, dbconn, key = "loan_id", root = syberia_root()) {
   stopifnot(is.function(fn))
   stopifnot(is.character(prefix))
   stopifnot(is.character(salt))
@@ -31,19 +31,21 @@ cache <- function(fn, prefix, salt, key = "loan_id", root = syberia_root()) {
   }
 
   tbl_name <- paste0(prefix, "_", digest(salt))
-  dbconn <- db_for_syberia_project(root)
+  if (missing(dbconn)) dbconn <- db_for_syberia_project(root)
 
   function(...) {
     # Check if user-provided function key matches the closure. 
-    if (is.null(tryCatch(match.arg(key, names(formals(fn))), error = function(...) NULL)))
+    if (is.null(tryCatch(identical(key, formals(fn)$key), error = function(...) NULL)))
       stop("Keys must match", call. = FALSE)
     # Go get the function arguments
     args <- eval.parent(substitute(alist(...)))
-    if (!key %in% names(args)) 
+    args <- sapply(names(args), function(n) eval(args[[n]]), simplify = FALSE, USE.NAMES = TRUE)
+    if (!"key" %in% names(args)) 
       stop("Key argument must be named", call. = FALSE)
     # Grab the new/old ids (might be integer(0))
     ids_new <- get_new_key(dbconn, salt, args[[key]], tbl_name)
-    ids_old <- setdiff(args[[key]], ids_new)
+    ids_old <- setdiff(c(args[[key]]), ids_new)
+#    print(paste(rep("#", 100), collapse=""))
     # Work on the new data
     if (length(ids_new) == 0) {
       print("All data is cached, unless they are missing")
@@ -59,8 +61,7 @@ cache <- function(fn, prefix, salt, key = "loan_id", root = syberia_root()) {
       print("No data is cached")
       data_old <- data.frame()
     } else {
-      if (!missing(.select) && dbExistsTable(dbconn, tbl_name)) 
-        # TODO (do not load every column)
+      if (exists(".select", inherits = FALSE) && dbExistsTable(dbconn, tbl_name)) 
         data_old <- dbGetQuery(dbconn,
           paste("SELECT ", 
                 paste(get_hashed_names(.select), collapse = ","), 
@@ -70,12 +71,11 @@ cache <- function(fn, prefix, salt, key = "loan_id", root = syberia_root()) {
         data_old <- batch_data(ids_old, salt, strict = TRUE, cache = FALSE)
     }
     # Check on the old data, recompute ids if missing on a given row
-    colnames_check <- NULL
     if (ncol(data_new) > 0)
       colnames_check <- setdiff(colnames(data_new), key)
-    else (!missing(.select))
+    else if (exists(".select", inherits = FALSE))
       colnames_check <- .select
-    if (is.null(colnames_check)) 
+    if (!exists("colnames_check", inherits = FALSE)) 
       ids_missing <- sapply(ids_old, 
         function(x) switch(any(is.na(data_old[x, ])), NULL, x))
     else
