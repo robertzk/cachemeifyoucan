@@ -45,12 +45,9 @@ cache <- function(fn, prefix, salt, dbconn, key = "loan_id", root = syberia_root
     # Grab the new/old ids (might be integer(0))
     ids_new <- get_new_key(dbconn, salt, args[[key]], tbl_name)
     ids_old <- setdiff(c(args[[key]]), ids_new)
-#    print(ids_new)
-#    print(ids_old)
-#    print(paste(rep("#", 100), collapse=""))
     # Work on the new data
     if (length(ids_new) == 0) {
-      print("All data is cached, unless they are missing")
+      #cat(paste0("All data is cached, unless they are missing", "\n"))
       data_new <- data.frame()
     } else {
       args[[key]] <- ids_new
@@ -60,11 +57,10 @@ cache <- function(fn, prefix, salt, dbconn, key = "loan_id", root = syberia_root
     error_fn(data_new)
     # Grab the old data (empty data frame when length 0)
     if (length(ids_old) == 0) {
-      print("No data is cached")
+      #cat(paste0("No data is cached", "\n"))
       data_old <- data.frame()
     } else {
-      print("These are cached:")
-      print(ids_old)
+      #cat(paste0("These are cached: ", paste(ids_old, collapse = " "), "\n"))
       if (exists(".select", inherits = FALSE) && dbExistsTable(dbconn, tbl_name)) 
         data_old <- dbGetQuery(dbconn,
           paste("SELECT ", 
@@ -90,8 +86,7 @@ cache <- function(fn, prefix, salt, dbconn, key = "loan_id", root = syberia_root
     }
     data_old <- data.frame()
     if (length(ids_missing) > 0) {
-      print("These have missing columns:")
-      print(ids_missing)
+      #cat(paste0("These have missing columns: ", paste(ids_missing, collapse = " "), "\n"))
       args[[key]] <- ids_missing
       data_old <- do.call(fn, args)
     }
@@ -100,5 +95,6 @@ cache <- function(fn, prefix, salt, dbconn, key = "loan_id", root = syberia_root
     df_combine <- rbind(data_new, data_old)
     # Cache them
     write_data_safely(dbconn, tbl_name, df_combine)
+    df_combine
   }
 }
