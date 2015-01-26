@@ -2,99 +2,80 @@
 
 slice <- function(x, n) split(x, as.integer((seq_along(x) - 1) / n))
 
-#' Sync credit model data between Rails and R
-#'
-#' @param version character. The version of the model whose
-#'   data we would like to sync.
-#' @param loans numeric. A list of reference load ids by which
-#'   to sync the dataset.
-#' @param root character. Root of the relevant syberia project.
-#'   The default is \code{syberia_root()}. This project must define
-#'   a \code{db} configuration option in its syberia config file.
-#'   This database will be used for syncing.
-#' @importFrom digest digest
-#' @return \code{TRUE} or \code{FALSE} according as the sync is 
-#'   successful or insuccessful.
-#' @export
-data_sync <- function(version, loans, root = syberia_root()) {
-  establish_database_connection <- function(root, version, loans, table_name) {
-    dbconn <- db_for_syberia_project(root)
-    # Make the table for this model version if it does not exist
-    if (!dbExistsTable(dbconn, table_name)) {
-      sample_data <- batch_data(loans, version, cache = FALSE)
-      # TODO: (RK) What if some columns are missing?
-      write_data_safely(dbconn, table_name, sample_data)
-    }
-    dbconn
-  }
-
-  get_new_loan_data <- function(dbconn, version, loans, table_name) {
-    if (length(loans) == 0) return(NULL)
-    # Fetch loan_ids already present.
-    loan_id_column_name <- get_hashed_names('loan_id')
-    present_loan_ids <- dbGetQuery(dbconn, paste0(
-      "SELECT ", loan_id_column_name, " FROM ", table_name))[[1]]
-    loans <- setdiff(loans, present_loan_ids)
-
-    # loans now contains the loan ids not yet present in the database.
-    if (length(loans) > 0) batch_data(loans, version, strict = TRUE, cache = FALSE)
-    else NULL
-  }
-
-  stopifnot(is.character(version))
-  stopifnot(is.numeric(loans) && length(loans) > 0)
-  tbl_name <- table_name(version)
-  dbconn <- establish_database_connection(root, version, loans, tbl_name)
-  new_data <- get_new_loan_data(dbconn, version, loans, tbl_name)
-  write_data_safely(dbconn, tbl_name, new_data)
-}
-
 #' Fetch table name that caches data for a model version.
 #' 
-#' @param version character. Model version.
 #' @name table_name
+#' @param version character. Model version.
 #' @importFrom digest digest
 #' @return the table name. This will just be \code{"version_"}
-#'   appended with the MD5 digest of the model version.
+#'   appended with the MD5 hash of the model version.
 table_name <- function(version) {
   paste0("version_", digest(version))
 }
 
-#' Fetch cached loan data from local storage.
+#' Fetch the map of column names.
 #'
-#' @param loans numeric. A vector of loan IDs.
-#' @param version character. The model version for which to fetch data.
-#' @param root character. Current syberia root project. Default is
-#'   \code{syberia_root()}.
-#' @return a data.frame of loans that could be fetched from the cache.
-#' @export
-cached_data <- function(loans, version, root = syberia_root()) {
-  stopifnot(is.numeric(loans))
-  stopifnot(is.character(version))
-  dbconn <- db_for_syberia_project(root)
-  tbl_name <- table_name(version)
-  if (length(loans) == 0 || !isTRUE(dbExistsTable(dbconn, tbl_name))) return(data.frame())
-  loan_id_column_name <- get_hashed_names('loan_id')
-  df <- dbGetQuery(dbconn,
-    paste("SELECT * FROM", tbl_name, "WHERE ", loan_id_column_name, " IN (",
-      paste(loans, collapse = ', '), ")"))
-  # Remove the non-hashed columns (like ID columns)
-  non_hashed_cols <- !grepl('^c[0-9a-f]{32}$', colnames(df))
-  df[, non_hashed_cols] <- vector('list', sum(non_hashed_cols))
+#' @name column_names_map
+#' @param dbconn SQLConnection. A database connection.
+column_names_map <- function(dbconn) {
+  dbGetQuery(dbconn, 'SELECT * FROM column_names')
+}
+
+#' MD5 digest of column names.
+#'
+#' @name get_hashed_names
+#' @param raw_names character. A character vector of column names.
+#' @importFrom digest digest
+#' @return the character vector of hashed names.
+get_hashed_names <- function(raw_names) {
+  require(digest)
+  paste0('c', sapply(raw_names, digest))
+}
+
+#' Translate column names using the column_names table from MD5 to raw.
+#'
+#' @name translate_column_names
+#' @param names character. A character vector of column names.
+#' @param dbconn SQLConnection. A database connection.
+translate_column_names <- function(names, dbconn) {
+  name_map <- column_names_map(dbconn)
+  name_map <- setNames(as.list(name_map$raw_name), name_map$hashed_name)
+  sapply(names, function(name) name_map[[name]] %||% name)
+}
+
+#' Convert the raw fetched database table to a readable data frame.
+#'
+#' @name db2df
+#' @param df. Raw fetched database table.
+#' @param dbconn SQLConnection. A database connection.
+#' @param key. Identifier of database table.
+db2df <- function(df, dbconn, key) {
+  df[[key]] <- NULL
   colnames(df) <- translate_column_names(colnames(df), dbconn)
-  df <- df[!duplicated(df), ]
   df
 }
 
-#' Save loan data into a database cache.
+#' Fetch the data frame from database conditioned on a key.
 #'
-#' @param version character. Model version.
-#' @param uncached_data dataframe. The data to save.
-save_loan_data_in_cache <- function(version, uncached_data) {
-  tblname <- table_name(version)
-  write_data_safely(db_for_syberia_project(), tblname, uncached_data)
+#' @name read_data
+#' @param dbconn SQLConnection. A database connection.
+#' @param tblname character. Database table name.
+#' @param ids vector. A vector of ids.
+#' @param key character. Database key.
+read_data <- function(dbconn, tblname, ids, key) {
+  df <- db2df(dbReadTable(dbconn, tblname), dbconn, key)
+  id_col <- grep(key, colnames(df), value = TRUE)
+  if (length(id_col) != 1)
+    stop("The data you are reading from the database must contain exactly one ",
+         paste0("column same as ", key))
+  df[df[[id_col]] == ids, , drop = FALSE]
 }
 
+remove_rows <- function(dbconn, tblname, ids, key) {
+  dbSendQuery(dbconn, paste0("delete from ", tblname, " where ", key, " in (",
+    paste(ids, collapse = " "), ")"))
+  TRUE
+}
 #' Fetch a database connection for a syberia project given
 #' its root.
 #' 
@@ -124,53 +105,6 @@ db_for_syberia_project <- local({
               port = config.database$port, host = config.database$host)
   }
 })
-
-#' MD5 digest of column names.
-#' @param raw_names character. A character vector of column names.
-#' @name get_hashed_names
-#' @return the character vector of hashed names.
-get_hashed_names <- function(raw_names) {
-  require(digest)
-  paste0('c', sapply(raw_names, digest::digest))
-}
-
-#' Fetch the map of column names.
-#' @name column_names_map
-#' @param dbconn SQLConnection. A database connection.
-column_names_map <- function(dbconn) {
-  dbGetQuery(dbconn, 'SELECT * FROM column_names')
-}
-
-#' Translate column names using the column_names table from MD5 to raw.
-#' @name translate_column_names
-#' @param names character. A character vector of column names.
-#' @param dbconn SQLConnection. A database connection.
-translate_column_names <- function(names, dbconn) {
-  name_map <- column_names_map(dbconn)
-  name_map <- setNames(as.list(name_map$raw_name), name_map$hashed_name)
-  sapply(names, function(name) name_map[[name]] %||% name)
-}
-
-db2df <- function(df, dbconn) {
-  df$loan_id <- NULL
-  colnames(df) <- translate_column_names(colnames(df), dbconn)
-  df
-}
-
-read_data <- function(dbconn, tblname, ids, key) {
-  df <- db2df(dbReadTable(dbconn, tblname), dbconn)
-  id_col <- grep(key, colnames(df), value = TRUE)
-  if (length(id_col) != 1)
-    stop("The data you are reading from the database must contain exactly one ",
-         paste0("column same as ", key))
-  df[df[[id_col]] == ids, , drop = FALSE]
-}
-
-remove_rows <- function(dbconn, tblname, ids, key) {
-  dbSendQuery(dbconn, paste0("delete from ", tblname, " where ", key, " in (",
-    paste(ids, collapse = " "), ")"))
-  TRUE
-}
 
 #' Helper utility for safe IO of a data.frame to a database connection.
 #'
@@ -227,41 +161,6 @@ write_data_safely <- function(dbconn, tblname, df) {
     TRUE
   }
 
-  # There have been issues with data stored incorrectly into the cache,
-  # likely due to a bug with RPostgreSQL's dbWriteTable (with append = TRUE).
-  # This function ensures the data was stored correctly.
-  verify_integrity_of_cached_data <- function(df, tblname) {
-    slices <- slice(seq_len(nrow(df)), nrow(df) / 100)
-    res <- do.call("rbind", Filter(Negate(is.null), lapply(slices, function(slice) {
-      dbGetQuery(dbconn, build_select_by_multiple_keys(df[slice, id_cols], tblname))
-    })))
-    if (!all(dim(df) == dim(res))) {
-      warning("Data saved to the database had dimensions ",
-           paste(dim(df), collapse = ', '), " yet data ultimately stored ",
-           "had dimensions ", paste(dim(res), collapse = ', '))
-      FALSE
-    } else {
-      if (!setequal(colnames(res), colnames(df))) {
-        diffcols <- c(setdiff(colnames(res), colnames(df)),
-                      setdiff(colnames(df),  colnames(res)))
-        warning("Data saved to the cache and data ultimately stored did not ",
-                "match because the following columns belong to the symmetric ",
-                "difference: ", paste(diffcols, collapse = ', '))
-      } else {
-        res <- as.data.frame(stringsAsFactors = FALSE, lapply(res, as.character))
-        df <- as.data.frame(stringsAsFactors = FALSE, lapply(df, as.character))
-        res <- res[, colnames(df)]
-        row_order <- do.call(order, as.list(df[, id_cols])) # Order by primary keys
-        df <- df[row_order, ]; res <- res[row_order, ]
-        if (!identical(TRUE, tmp <- all.equal(res[, colnames(df)], df))) {
-          warning("Data saved to the cache and data ultimately stored were ",
-                  "not all equal. Something may have gone wrong! Errors: ",
-                  paste(tmp, collapse = "\n"))
-        } else TRUE
-      }
-    }
-  }
-
   write_column_hashed_data <- function(df, append = TRUE) {
     write_column_names_map(colnames(df))
 
@@ -286,10 +185,6 @@ write_data_safely <- function(dbconn, tblname, df) {
     old_options <- options(scipen = 20, digits = 20) 
     on.exit(options(old_options))
 
-#    lapply(slices, function(slice) {
-#      if (!append) dbWriteTable(dbconn, tblname, df[slice, ], row.names = 0)
-#      else RPostgreSQL::postgresqlpqExec(dbconn, build_insert_query(tblname, df[slice, ]))
-#    })
     for (slice in slices) {
       if (!append)  {
         dbWriteTable(dbconn, tblname, df[slice, ], row.names = 0)
@@ -297,10 +192,6 @@ write_data_safely <- function(dbconn, tblname, df) {
       } else {
         RPostgreSQL::postgresqlpqExec(dbconn, build_insert_query(tblname, df[slice, ]))
     }}
-
-    #verify_integrity_of_cached_data(df, tblname)
-    # To make sure the above bug is addressed, we compare the data stored in
-    # the database to the data.frame.
   }
 
   if (!dbExistsTable(dbconn, tblname)) {
@@ -362,25 +253,3 @@ build_insert_query <- function(tblname, df) {
   values <- paste(apply(df, 1, paste, collapse = ', '), collapse = '), (')
   Ramd::pp("INSERT INTO #{tblname} (#{cols}) VALUES (#{values})")
 }
-
-#' Build a SELECT query for multiple primary keys for RPostgreSQL.
-#'
-#' Turn a data.frame like \code{data.frame(a = c(1, 2, NA), b = (4, NA, 5)}
-#' into the query
-#'  \code{"SELECT * FROM tblname WHERE (a=1 AND b=4) OR (a=2 AND b IS NULL) OR (a is NULL and b=5)"}
-#' 
-#' @param df data.frame. The data.frame of primary keys, with names
-#'   corresponding to database column names.
-#' @param tblname character. The name of the table.
-build_select_by_multiple_keys <- function(df, tblname) {
-  # Convert all columns to integer for safety (use as.character first
-  # for correct behavior on factors and ordereds).
-  df <- data.frame(lapply(df, function(x) as.integer(as.character(x))))
-  # Construct an AND+OR WHERE clause of the form (col1 = 1 AND col2 = 5 AND ...) OR ...  
-  cols <- paste0(colnames(df), '::integer')
-  AND_logic <- apply(df, 1, function(x) paste0('(', paste(ifelse(is.na(x),
-    paste(cols, 'IS NULL'), paste(cols, '=', x)), collapse = ' AND '), ')'))
-  full_logic <- paste(AND_logic, collapse = ' OR ')
-  Ramd::pp("SELECT * FROM #{tblname} WHERE #{full_logic}")
-}
-

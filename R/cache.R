@@ -8,7 +8,8 @@
 #i @import avant syberiaStructure
 #' @return a function with a cache layer of database backend.
 #' @export
-cache <- function(fn, prefix, salt, dbconn, key = "loan_id", root = syberia_root()) {
+cache <- function(fn, prefix, salt, dbconn, data_batcher,
+  key = "loan_id", root = syberia_root()) {
   stopifnot(is.function(fn))
   stopifnot(is.character(prefix))
   stopifnot(is.character(salt))
@@ -66,9 +67,9 @@ cache <- function(fn, prefix, salt, dbconn, key = "loan_id", root = syberia_root
           paste("SELECT ", 
                 paste(get_hashed_names(c(args$.select, key)), collapse = ","), 
                 " FROM", tbl_name, "WHERE ", key, " IN (",
-          paste(ids_old, collapse = ', '), ")")), dbconn)
+          paste(ids_old, collapse = ', '), ")")), dbconn, key)
       else 
-        data_old <- batch_data(ids_old, salt, strict = TRUE, cache = FALSE)
+        data_old <- data_batcher(ids_old, salt, strict = TRUE, cache = FALSE)
     }
     # Check on the old data, recompute ids if missing on a given row
     if (ncol(data_new) > 0)
