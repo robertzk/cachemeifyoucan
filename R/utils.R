@@ -151,6 +151,27 @@ translate_column_names <- function(names, dbconn) {
   sapply(names, function(name) name_map[[name]] %||% name)
 }
 
+db2df <- function(df, dbconn) {
+  df$loan_id <- NULL
+  colnames(df) <- translate_column_names(colnames(df), dbconn)
+  df
+}
+
+read_data <- function(dbconn, tblname, ids, key) {
+  df <- db2df(dbReadTable(dbconn, tblname), dbconn)
+  id_col <- grep(key, colnames(df), value = TRUE)
+  if (length(id_col) != 1)
+    stop("The data you are reading from the database must contain exactly one ",
+         paste0("column same as ", key))
+  df[df[[id_col]] == ids, , drop = FALSE]
+}
+
+remove_rows <- function(dbconn, tblname, ids, key) {
+  dbSendQuery(dbconn, paste0("delete from ", tblname, " where ", key, " in (",
+    paste(ids, collapse = " "), ")"))
+  TRUE
+}
+
 #' Helper utility for safe IO of a data.frame to a database connection.
 #'
 #' This function will be mindful of two problems: non-existent columns

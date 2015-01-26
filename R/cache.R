@@ -89,10 +89,20 @@ cache <- function(fn, prefix, salt, dbconn, key = "loan_id", root = syberia_root
       #cat(paste0("These have missing columns: ", paste(ids_missing, collapse = " "), "\n"))
       args[[key]] <- ids_missing
       data_old <- do.call(fn, args)
+      # Fetch old data from db
+      data_old_db <- read_data(dbconn, tbl_name, data_old[[key]], key)
+      # Merge on-the-fly data_old with db
+      # Stop if something happens concurrently, 
+      # pretending the following line of code are atomically executed...
+      stopifnot(setequal(data_old_db[[key]], data_old[[key]]), 
+          remove_rows(dbconn, tbl_name, data_old[[key]], key))
+      data_old_db <- data_old_db[, !colnames(data_old_db) %in% setdiff(colnames(data_old), key), 
+        drop = FALSE]
+      data_old <- merge(data_old, data_old_db, by = key)
     }
     error_fn(data_old)
     # Combine new data and old data
-    df_combine <- rbind(data_new, data_old)
+    df_combine <- plyr::rbind.fill(data_new, data_old)
     # Cache them
     write_data_safely(dbconn, tbl_name, df_combine)
     df_combine
