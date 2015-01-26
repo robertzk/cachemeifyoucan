@@ -91,3 +91,22 @@ package_stub("avant", "batch_data", my_batch_data,
   df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn)
   expect_equal(dplyr::arrange(df_db, loan_id), dplyr::arrange(df_ref, loan_id))
 }))
+
+test_that('Test appending partially overlapped table with missing value 2', 
+package_stub("avant", "batch_data", my_batch_data,
+{ 
+  lapply(dbListTables(dbconn), function(t) dbRemoveTable(dbconn, t))
+  my_fcn <- function(loan_id, key = "loan_id", ...) {
+    set.seed(seed)
+    data.frame("loan_id" = loan_id, "column_test" = rnorm(length(loan_id)))
+  }
+  df_ref <- my_fcn(1:6)
+  df_ref[5, 2] <- df_ref[6, 2] <- df_ref[1, 2]
+  cached_fcn <- cache(my_fcn, prefix, salt, dbconn, "loan_id")
+  cached_fcn(loan_id = 1:5, key = "loan_id", .select = "column_test")
+  df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn)
+  set_NULL(5)
+  cached_fcn(loan_id = 5:6, key = "loan_id", .select = "column_test")
+  df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn)
+  expect_equal(dplyr::arrange(df_db, loan_id), dplyr::arrange(df_ref, loan_id))
+}))

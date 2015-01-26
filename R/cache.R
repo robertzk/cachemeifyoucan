@@ -61,20 +61,20 @@ cache <- function(fn, prefix, salt, dbconn, key = "loan_id", root = syberia_root
       data_old <- data.frame()
     } else {
       #cat(paste0("These are cached: ", paste(ids_old, collapse = " "), "\n"))
-      if (exists(".select", inherits = FALSE) && dbExistsTable(dbconn, tbl_name)) 
-        data_old <- dbGetQuery(dbconn,
+      if (".select" %in% names(args) && dbExistsTable(dbconn, tbl_name)) 
+        data_old <- db2df(dbGetQuery(dbconn,
           paste("SELECT ", 
-                paste(get_hashed_names(.select), collapse = ","), 
+                paste(get_hashed_names(c(args$.select, key)), collapse = ","), 
                 " FROM", tbl_name, "WHERE ", key, " IN (",
-          paste(ids_old, collapse = ', '), ")"))[[1]]
+          paste(ids_old, collapse = ', '), ")")), dbconn)
       else 
         data_old <- batch_data(ids_old, salt, strict = TRUE, cache = FALSE)
     }
     # Check on the old data, recompute ids if missing on a given row
     if (ncol(data_new) > 0)
       colnames_check <- setdiff(colnames(data_new), key)
-    else if (exists(".select", inherits = FALSE))
-      colnames_check <- .select
+    else if (".select" %in% names(args))
+      colnames_check <- args$.select
     if (!exists("colnames_check", inherits = FALSE)) {
       ids_missing <- sapply(ids_old, 
         function(x) switch(2 - any(is.na(data_old[x, ])), x, NA))
