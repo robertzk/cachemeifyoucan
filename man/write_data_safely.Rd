@@ -18,7 +18,7 @@ This function will be mindful of two problems: non-existent columns
 and long column names.
 }
 \details{
-Since this is meant to be used as a helper function for caching loan
+Since this is meant to be used as a helper function for caching
 data, we must take a few precautions. If certain variables are not
 available for older data but are introduced for newer data, we
 must be careful to create those columns first.

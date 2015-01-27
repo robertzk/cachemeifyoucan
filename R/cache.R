@@ -8,7 +8,7 @@
 #i @import avant syberiaStructure
 #' @return a function with a cache layer of database backend.
 #' @export
-cache <- function(fn, prefix, salt, key = "loan_id") {
+cache <- function(fn, prefix, salt, key) {
   stopifnot(is.function(fn))
   stopifnot(is.character(prefix))
   stopifnot(is.character(salt))

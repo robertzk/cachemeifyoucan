@@ -91,7 +91,7 @@ remove_rows <- function(dbconn, tblname, ids, key) {
 #' This function will be mindful of two problems: non-existent columns
 #' and long column names.
 #'
-#' Since this is meant to be used as a helper function for caching loan
+#' Since this is meant to be used as a helper function for caching 
 #' data, we must take a few precautions. If certain variables are not
 #' available for older data but are introduced for newer data, we
 #' must be careful to create those columns first.
@@ -125,7 +125,7 @@ write_data_safely <- function(dbconn, tblname, df) {
     column_map <- column_map[!duplicated(column_map), ]
 
     # If we don't do this, we will get really weird bugs with numeric things stored as character
-    # For example, a loan with ID 100000 will be stored as 10e+5, which is wrong.
+    # For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
     old_options <- options(scipen = 20, digits = 20) 
     on.exit(options(old_options))
 
@@ -161,7 +161,7 @@ write_data_safely <- function(dbconn, tblname, df) {
     slices <- slice(seq_len(nrow(df)), nrow(df) / number_of_records_per_insert_query)
 
     # If we don't do this, we will get really weird bugs with numeric things stored as character
-    # For example, a loan with ID 100000 will be stored as 10e+5, which is wrong.
+    # For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
     old_options <- options(scipen = 20, digits = 20) 
     on.exit(options(old_options))
 
