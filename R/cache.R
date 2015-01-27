@@ -8,43 +8,30 @@
 #i @import avant syberiaStructure
 #' @return a function with a cache layer of database backend.
 #' @export
-cache <- function(fn, prefix, salt, dbconn, data_batcher,
-  key = "loan_id", root = syberia_root()) {
+cache <- function(fn, prefix, salt, key = "loan_id") {
   stopifnot(is.function(fn))
   stopifnot(is.character(prefix))
   stopifnot(is.character(salt))
   stopifnot(is.character(key))
 
-  get_new_key <- function(dbconn, salt, ids, table_name) {
-    if (length(ids) == 0) return(integer(0))
-    if (!dbExistsTable(dbconn, tbl_name)) return(ids)
-    id_column_name <- get_hashed_names(key)
-    present_ids <- dbGetQuery(dbconn, paste0(
-      "SELECT ", id_column_name, " FROM ", table_name))[[1]]
-    setdiff(ids, present_ids)
-  }
-
-  error_fn <- function(data) {
-    if (!is.data.frame(data))
-      stop("User-provided function must return a data frame", call. = FALSE)
-    if (any(is.na(data)))
-      stop("NA is returned in user-provided function", call. = FALSE)
-  }
-
   tbl_name <- paste0(prefix, "_", digest(salt))
-  if (missing(dbconn)) dbconn <- db_for_syberia_project(root)
 
   function(...) {
     # Check if user-provided function key matches the closure. 
     if (is.null(tryCatch(identical(key, formals(fn)$key), error = function(...) NULL)))
       stop("Keys must match", call. = FALSE)
     # Go get the function arguments
-    args <- eval.parent(substitute(alist(...)))
-    args <- sapply(names(args), function(n) eval(args[[n]]), simplify = FALSE, USE.NAMES = TRUE)
+    #args <- eval.parent(substitute(alist(...)))
+    args <- eval.parent(substitute(list(...)))
+    #args <- sapply(names(args), function(n) eval(args[[n]]), simplify = FALSE, USE.NAMES = TRUE)
     if (!"key" %in% names(args)) 
       stop("Key argument must be named", call. = FALSE)
+    if (!"con" %in% names(args))
+      stop("Database connection handler must be provided", call. = FALSE)
+    if (!"batch_data" %in% names(args))
+      stop("Batch data must be provided", call. = FALSE)
     # Grab the new/old ids (might be integer(0))
-    ids_new <- get_new_key(dbconn, salt, args[[key]], tbl_name)
+    ids_new <- get_new_key(args$con, tbl_name, args[[key]], key)
     ids_old <- setdiff(c(args[[key]]), ids_new)
     # Work on the new data
     if (length(ids_new) == 0) {
@@ -62,14 +49,14 @@ cache <- function(fn, prefix, salt, dbconn, data_batcher,
       data_old <- data.frame()
     } else {
       #cat(paste0("These are cached: ", paste(ids_old, collapse = " "), "\n"))
-      if (".select" %in% names(args) && dbExistsTable(dbconn, tbl_name)) 
-        data_old <- db2df(dbGetQuery(dbconn,
+      if (".select" %in% names(args) && dbExistsTable(args$con, tbl_name)) 
+        data_old <- db2df(dbGetQuery(args$con,
           paste("SELECT ", 
                 paste(get_hashed_names(c(args$.select, key)), collapse = ","), 
                 " FROM", tbl_name, "WHERE ", key, " IN (",
-          paste(ids_old, collapse = ', '), ")")), dbconn, key)
+          paste(ids_old, collapse = ', '), ")")), args$con, key)
       else 
-        data_old <- data_batcher(ids_old, salt, strict = TRUE, cache = FALSE)
+        data_old <- args$batch_data(ids_old, salt, strict = TRUE, cache = FALSE)
     }
     # Check on the old data, recompute ids if missing on a given row
     if (ncol(data_new) > 0)
@@ -91,12 +78,12 @@ cache <- function(fn, prefix, salt, dbconn, data_batcher,
       args[[key]] <- ids_missing
       data_old <- do.call(fn, args)
       # Fetch old data from db
-      data_old_db <- read_data(dbconn, tbl_name, data_old[[key]], key)
+      data_old_db <- read_data(args$con, tbl_name, data_old[[key]], key)
       # Merge on-the-fly data_old with db
       # Stop if something happens concurrently, 
       # pretending the following line of code are atomically executed...
       stopifnot(setequal(data_old_db[[key]], data_old[[key]]), 
-          remove_rows(dbconn, tbl_name, data_old[[key]], key))
+          remove_rows(args$con, tbl_name, data_old[[key]], key))
       data_old_db <- data_old_db[, !colnames(data_old_db) %in% setdiff(colnames(data_old), key), 
         drop = FALSE]
       data_old <- merge(data_old, data_old_db, by = key)
@@ -105,7 +92,7 @@ cache <- function(fn, prefix, salt, dbconn, data_batcher,
     # Combine new data and old data
     df_combine <- plyr::rbind.fill(data_new, data_old)
     # Cache them
-    write_data_safely(dbconn, tbl_name, df_combine)
+    write_data_safely(args$con, tbl_name, df_combine)
     df_combine
   }
 }

@@ -24,13 +24,14 @@ test_that('Test inserting new table',
 {  
   # First remove all tables in the local database.
   lapply(dbListTables(dbconn), function(t) dbRemoveTable(dbconn, t))
-  my_fcn <- function(loan_id, key = "loan_id") {
+  my_fcn <- function(loan_id, key = "loan_id", ...) {
    set.seed(seed)
    data.frame("loan_id" = loan_id, "column_test" = rnorm(length(loan_id)))
   }
   df_ref <- my_fcn(1:5)
-  cached_fcn <- cache(my_fcn, prefix, salt, dbconn, batch_data, "loan_id")
-  df_cached <- cached_fcn(loan_id = 1:5, key = "loan_id")
+  cached_fcn <- cache(my_fcn, prefix, salt, key = "loan_id")
+  #browser()
+  df_cached <- cached_fcn(loan_id = 1:5, key = "loan_id", con = dbconn, batch_data = batch_data)
   df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "loan_id")
   expect_equal(df_cached, df_ref)
   expect_equal(df_db, df_ref)
@@ -39,14 +40,14 @@ test_that('Test inserting new table',
 test_that('Test appending partially overlapped table', 
 { 
   lapply(dbListTables(dbconn), function(t) dbRemoveTable(dbconn, t))
-  my_fcn <- function(loan_id, key = "loan_id") {
+  my_fcn <- function(loan_id, key = "loan_id", ...) {
     set.seed(seed)
     data.frame("loan_id" = loan_id, "column_test" = rnorm(length(loan_id)))
   }
   df_ref <- my_fcn(1:5)
-  cached_fcn <- cache(my_fcn, prefix, salt, dbconn, batch_data, "loan_id")
-  cached_fcn(loan_id = 1:5, key = "loan_id")
-  cached_fcn(loan_id = 5, key = "loan_id")
+  cached_fcn <- cache(my_fcn, prefix, salt, key = "loan_id")
+  cached_fcn(loan_id = 1:5, key = "loan_id", con = dbconn, batch_data = batch_data)
+  cached_fcn(loan_id = 5, key = "loan_id", con = dbconn, batch_data = batch_data)
   df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "loan_id")
   expect_equal(df_db, df_ref)
 })
@@ -54,17 +55,17 @@ test_that('Test appending partially overlapped table',
 test_that('Test appending fully overlapped table with missing value', 
 { 
   lapply(dbListTables(dbconn), function(t) dbRemoveTable(dbconn, t))
-  my_fcn <- function(loan_id, key = "loan_id") {
+  my_fcn <- function(loan_id, key = "loan_id", ...) {
     set.seed(seed)
     data.frame("loan_id" = loan_id, "column_test" = rnorm(length(loan_id)))
   }
   df_ref <- my_fcn(1:5)
   df_ref[5, 2] <- df_ref[1, 2]
-  cached_fcn <- cache(my_fcn, prefix, salt, dbconn, batch_data, "loan_id")
-  cached_fcn(loan_id = 1:5, key = "loan_id")
+  cached_fcn <- cache(my_fcn, prefix, salt, key = "loan_id")
+  cached_fcn(loan_id = 1:5, key = "loan_id", con = dbconn, batch_data = batch_data)
   df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "loan_id")
   set_NULL(5)
-  cached_fcn(loan_id = 5, key = "loan_id")
+  cached_fcn(loan_id = 5, key = "loan_id", con = dbconn, batch_data = batch_data)
   df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "loan_id")
   expect_equal(df_db, df_ref)
 })
@@ -72,17 +73,17 @@ test_that('Test appending fully overlapped table with missing value',
 test_that('Test appending partially overlapped table with missing value', 
 { 
   lapply(dbListTables(dbconn), function(t) dbRemoveTable(dbconn, t))
-  my_fcn <- function(loan_id, key = "loan_id") {
+  my_fcn <- function(loan_id, key = "loan_id", ...) {
     set.seed(seed)
     data.frame("loan_id" = loan_id, "column_test" = rnorm(length(loan_id)))
   }
   df_ref <- my_fcn(1:6)
   df_ref[5, 2] <- df_ref[6, 2] <- df_ref[1, 2]
-  cached_fcn <- cache(my_fcn, prefix, salt, dbconn, batch_data, "loan_id")
-  cached_fcn(loan_id = 1:5, key = "loan_id")
+  cached_fcn <- cache(my_fcn, prefix, salt, key = "loan_id")
+  cached_fcn(loan_id = 1:5, key = "loan_id", con = dbconn, batch_data = batch_data)
   df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "loan_id")
   set_NULL(5)
-  cached_fcn(loan_id = 5:6, key = "loan_id")
+  cached_fcn(loan_id = 5:6, key = "loan_id", con = dbconn, batch_data = batch_data)
   df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "loan_id")
   expect_equal(dplyr::arrange(df_db, loan_id), dplyr::arrange(df_ref, loan_id))
 })
@@ -96,11 +97,13 @@ test_that('Test appending partially overlapped table with missing value 2',
   }
   df_ref <- my_fcn(1:6)
   df_ref[5, 2] <- df_ref[6, 2] <- df_ref[1, 2]
-  cached_fcn <- cache(my_fcn, prefix, salt, dbconn, batch_data, "loan_id")
-  cached_fcn(loan_id = 1:5, key = "loan_id", .select = "column_test")
+  cached_fcn <- cache(my_fcn, prefix, salt, key = "loan_id")
+  cached_fcn(loan_id = 1:5, key = "loan_id", con = dbconn, 
+    batch_data = batch_data, .select = "column_test")
   df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "loan_id")
   set_NULL(5)
-  cached_fcn(loan_id = 5:6, key = "loan_id", .select = "column_test")
+  cached_fcn(loan_id = 5:6, key = "loan_id", con = dbconn,
+    batch_data = batch_data, .select = "column_test")
   df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "loan_id")
   expect_equal(dplyr::arrange(df_db, loan_id), dplyr::arrange(df_ref, loan_id))
 })

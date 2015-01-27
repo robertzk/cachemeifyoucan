@@ -17,6 +17,7 @@ table_name <- function(version) {
 #'
 #' @name column_names_map
 #' @param dbconn SQLConnection. A database connection.
+#' @importFrom DBI dbGetQuery
 column_names_map <- function(dbconn) {
   dbGetQuery(dbconn, 'SELECT * FROM column_names')
 }
@@ -28,7 +29,6 @@ column_names_map <- function(dbconn) {
 #' @importFrom digest digest
 #' @return the character vector of hashed names.
 get_hashed_names <- function(raw_names) {
-  require(digest)
   paste0('c', sapply(raw_names, digest))
 }
 
@@ -61,7 +61,8 @@ db2df <- function(df, dbconn, key) {
 #' @param dbconn SQLConnection. A database connection.
 #' @param tblname character. Database table name.
 #' @param ids vector. A vector of ids.
-#' @param key character. Database key.
+#' @param key character. Table key.
+#' @importFrom DBI dbReadTable
 read_data <- function(dbconn, tblname, ids, key) {
   df <- db2df(dbReadTable(dbconn, tblname), dbconn, key)
   id_col <- grep(key, colnames(df), value = TRUE)
@@ -71,40 +72,19 @@ read_data <- function(dbconn, tblname, ids, key) {
   df[df[[id_col]] == ids, , drop = FALSE]
 }
 
+#' Remove rows from a table in the database.
+#'
+#' @name remove_rows
+#' @param dbconn SQLConnection. A database connection.
+#' @param tblname character. Database table name.
+#' @param ids vector. A vector of ids.
+#' @param key character. Table key.
+#' @importFrom DBI dbSendQuery
 remove_rows <- function(dbconn, tblname, ids, key) {
   dbSendQuery(dbconn, paste0("delete from ", tblname, " where ", key, " in (",
     paste(ids, collapse = " "), ")"))
   TRUE
 }
-#' Fetch a database connection for a syberia project given
-#' its root.
-#' 
-#' @param root character. The root of the Syberia project.
-#'   The default is \code{syberia_root()}.
-#' @name db_for_syberia_project
-#' @importFrom testthat colourise
-#' @return a database connection object.
-db_for_syberia_project <- local({
-  conn <- NULL
-  function(root = syberia_root()) {
-    if (!is.null(conn)) return(conn)
-    require(yaml)
-    database.yml <- file.path(root, 'config', 'database.yml')
-    database.yml <- paste(readLines(database.yml), collapse = "\n")
-    config.database <- yaml.load(database.yml)
-    stopifnot('avant' %in% names(config.database))
-    config.database <- config.database$avant
-    # TODO: (RK) Support different adapters.
-    config.database$adapter <- config.database$adapter %||% 'postgresql'
-    config.database$host <- config.database$host %||% '127.0.0.1'
-    config.database$port <- as.integer(config.database$port %||% 5432)
-
-    require(RPostgreSQL)
-    conn <<- dbConnect(dbDriver("PostgreSQL"), dbname = config.database$database,
-              user = config.database$username, password = config.database$password,
-              port = config.database$port, host = config.database$host)
-  }
-})
 
 #' Helper utility for safe IO of a data.frame to a database connection.
 #'
@@ -252,4 +232,33 @@ build_insert_query <- function(tblname, df) {
   cols <- paste(colnames(df), collapse = ', ')
   values <- paste(apply(df, 1, paste, collapse = ', '), collapse = '), (')
   Ramd::pp("INSERT INTO #{tblname} (#{cols}) VALUES (#{values})")
+}
+
+#' setdiff current ids with those in the table of the database.
+#'
+#' @name get_new_key
+#' @param dbconn SQLConnection. The database connection.
+#' @param tbl_name character. Database table name.
+#' @param ids vector. A vector of ids.
+#' @param key character. Identifier of database table.
+#' @importFrom DBI dbExistsTable
+#' @importFrom DBI dbGetQuery
+get_new_key <- function(dbconn, tbl_name, ids, key) {
+  if (length(ids) == 0) return(integer(0))
+  if (!dbExistsTable(dbconn, tbl_name)) return(ids)
+  id_column_name <- get_hashed_names(key)
+  present_ids <- dbGetQuery(dbconn, paste0(
+    "SELECT ", id_column_name, " FROM ", tbl_name))[[1]]
+  setdiff(ids, present_ids)
+}
+
+#' Stop on given errors and print corresponding error message.
+#'
+#' @name error_fn
+#' @param data data.frame.
+error_fn <- function(data) {
+  if (!is.data.frame(data))
+    stop("User-provided function must return a data frame", call. = FALSE)
+  if (any(is.na(data)))
+    stop("NA is returned in user-provided function", call. = FALSE)
 }

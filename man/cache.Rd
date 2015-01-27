@@ -4,8 +4,7 @@
 \alias{cache}
 \title{Closure of a cache layer}
 \usage{
-cache(fn, prefix, salt, dbconn, data_batcher, key = "loan_id",
-  root = syberia_root())
+cache(fn, prefix, salt, key = "loan_id")
 }
 \arguments{
 \item{fn.}{The function to cache.}
