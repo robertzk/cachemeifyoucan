@@ -10,8 +10,12 @@ salt <- "model_test"
 seed <- 29
 dbconn <- dbConnect(dbDriver("PostgreSQL"), "feiye")
 
-batch_data <- function(ids, version = "model_test", ...) {
-  db2df(dbReadTable(dbconn, table_name(version)), dbconn, "id")
+batch_data <- function(id, version = "model_test", ...) {
+  Reduce(rbind, lapply(id, function(id) {
+    seed <- as.integer(paste0("0x", substr(digest::digest(paste(id, version)), 1, 6)))
+    set.seed(seed)
+    data.frame(id = id, x = runif(1, 0, 1), y = rnorm(1, 0, 1))
+  }))
 }
 
 set_NULL <- function(id) {
