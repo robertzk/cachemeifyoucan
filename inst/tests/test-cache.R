@@ -6,7 +6,7 @@ library(testthatsomemore)
 # Set up local database for now
 # https://github.com/hadley/dplyr/blob/master/vignettes/notes/postgres-setup.Rmd
 prefix <- "version"
-salt <- "model_test"
+salt <- "version"
 seed <- 29
 dbconn <- dbConnect(dbDriver("PostgreSQL"), "feiye")
 
