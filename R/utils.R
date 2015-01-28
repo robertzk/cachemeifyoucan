@@ -258,7 +258,7 @@ get_new_key <- function(dbconn, tbl_name, ids, key) {
 #' @param data data.frame.
 error_fn <- function(data) {
   if (!is.data.frame(data))
-    stop("User-provided function must return a data frame", call. = FALSE)
-  if (any(is.na(data)))
-    stop("NA is returned in user-provided function", call. = FALSE)
+    stop("To-be-cached function must return a data frame", call. = FALSE)
+  if(any(lapply(data, function(x) sum(is.na(x))) == nrow(data)))
+    stop("A whole column returned by to-be-cached function is missing", call. = FALSE)
 }

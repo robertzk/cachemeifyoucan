@@ -17,19 +17,14 @@ cache <- function(fn, prefix, salt, key) {
   tbl_name <- paste0(prefix, "_", digest(salt))
 
   function(...) {
-    # Check if user-provided function key matches the closure. 
-    if (is.null(tryCatch(identical(key, formals(fn)$key), error = function(...) NULL)))
-      stop("Keys must match", call. = FALSE)
+    key = formals(fn)$key
     # Go get the function arguments
-    #args <- eval.parent(substitute(alist(...)))
     args <- eval.parent(substitute(list(...)))
-    #args <- sapply(names(args), function(n) eval(args[[n]]), simplify = FALSE, USE.NAMES = TRUE)
-    if (!"key" %in% names(args)) 
-      stop("Key argument must be named", call. = FALSE)
+    if (!key %in% names(args)) 
+      stop("Key argument must be provided", call. = FALSE)
     if (!"con" %in% names(args))
-      stop("Database connection handler must be provided", call. = FALSE)
-    if (!"batch_data" %in% names(args))
-      stop("Batch data must be provided", call. = FALSE)
+      stop("A database connection handler must be provided for caching purpose", 
+        call. = FALSE)
     # Grab the new/old ids (might be integer(0))
     ids_new <- get_new_key(args$con, tbl_name, args[[key]], key)
     ids_old <- setdiff(c(args[[key]]), ids_new)
@@ -48,15 +43,14 @@ cache <- function(fn, prefix, salt, key) {
       #cat(paste0("No data is cached", "\n"))
       data_old <- data.frame()
     } else {
-      #cat(paste0("These are cached: ", paste(ids_old, collapse = " "), "\n"))
-      if (".select" %in% names(args) && dbExistsTable(args$con, tbl_name)) 
+        #cat(paste0("These are cached: ", paste(ids_old, collapse = " "), "\n"))
         data_old <- db2df(dbGetQuery(args$con,
           paste("SELECT ", 
-                paste(get_hashed_names(c(args$.select, key)), collapse = ","), 
+                switch(1 + (".select" %in% names(args)),
+                  "*",
+                  paste(get_hashed_names(c(args$.select, key)), collapse = ",")), 
                 " FROM", tbl_name, "WHERE ", key, " IN (",
           paste(ids_old, collapse = ', '), ")")), args$con, key)
-      else 
-        data_old <- args$batch_data(ids_old, salt, strict = TRUE, cache = FALSE)
     }
     # Check on the old data, recompute ids if missing on a given row
     if (ncol(data_new) > 0)

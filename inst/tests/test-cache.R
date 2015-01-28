@@ -1,40 +1,35 @@
 context('cachemeifyoucan')
 library(RPostgreSQL)
-library(testthatsomemore)
+library(digest)
 
 # Set up test fixture
 # Set up local database for now
 # https://github.com/hadley/dplyr/blob/master/vignettes/notes/postgres-setup.Rmd
 prefix <- "version"
-salt <- "version"
+salt <- "model_test"
 seed <- 29
 dbconn <- dbConnect(dbDriver("PostgreSQL"), "feiye")
 
-batch_data <- function(id, version = "model_test", ...) {
-  Reduce(rbind, lapply(id, function(id) {
-    seed <- as.integer(paste0("0x", substr(digest::digest(paste(id, version)), 1, 6)))
+batch_data <- function(id, salt = "model_test", key = "id", 
+  switch = FALSE, flip = integer(0), ...) {
+  original <- Reduce(rbind, lapply(id, function(id) {
+    seed <- as.integer(paste0("0x", substr(digest(paste(id, salt)), 1, 6)))
     set.seed(seed)
-    data.frame(id = id, x = runif(1, 0, 1), y = rnorm(1, 0, 1))
-  }))
-}
-
-set_NULL <- function(id) {
-  dbSendQuery(dbconn, 
-    paste0("update version_d9eccf5ac458b7294c552cbb9166ce7e set 
-      cb25dd2c01c3954a0cdc3fa18ac4bcfc5 = NULL where id = ", id))
+    data.frame(id = id, x = runif(1), y = rnorm(1))}))
+  ret <- original
+  if (switch) ret$y <- NA
+  if (switch && length(flip) >= 1)
+    ret[flip, "y"] <- original[flip, "y"]
+  ret
 }
 
 test_that('Test inserting new table', 
 {  
   # First remove all tables in the local database.
   lapply(dbListTables(dbconn), function(t) dbRemoveTable(dbconn, t))
-  my_fcn <- function(id, key = "id", ...) {
-   set.seed(seed)
-   data.frame("id" = id, "column_test" = rnorm(length(id)))
-  }
-  df_ref <- my_fcn(1:5)
-  cached_fcn <- cache(my_fcn, prefix, salt, key = "id")
-  df_cached <- cached_fcn(id = 1:5, key = "id", con = dbconn, batch_data = batch_data)
+  df_ref <- batch_data(1:5)
+  cached_fcn <- cache(batch_data, prefix, salt, key = "id")
+  df_cached <- cached_fcn(id = 1:5, con = dbconn)
   df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "id")
   expect_equal(df_cached, df_ref)
   expect_equal(df_db, df_ref)
@@ -43,14 +38,10 @@ test_that('Test inserting new table',
 test_that('Test appending partially overlapped table', 
 { 
   lapply(dbListTables(dbconn), function(t) dbRemoveTable(dbconn, t))
-  my_fcn <- function(id, key = "id", ...) {
-    set.seed(seed)
-    data.frame("id" = id, "column_test" = rnorm(length(id)))
-  }
-  df_ref <- my_fcn(1:5)
-  cached_fcn <- cache(my_fcn, prefix, salt, key = "id")
-  cached_fcn(id = 1:5, key = "id", con = dbconn, batch_data = batch_data)
-  cached_fcn(id = 5, key = "id", con = dbconn, batch_data = batch_data)
+  df_ref <- batch_data(1:5)
+  cached_fcn <- cache(batch_data, prefix, salt, key = "id")
+  cached_fcn(id = 1:5, con = dbconn)
+  cached_fcn(id = 5, con = dbconn)
   df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "id")
   expect_equal(df_db, df_ref)
 })
@@ -58,35 +49,23 @@ test_that('Test appending partially overlapped table',
 test_that('Test appending fully overlapped table with missing value', 
 { 
   lapply(dbListTables(dbconn), function(t) dbRemoveTable(dbconn, t))
-  my_fcn <- function(id, key = "id", ...) {
-    set.seed(seed)
-    data.frame("id" = id, "column_test" = rnorm(length(id)))
-  }
-  df_ref <- my_fcn(1:5)
-  df_ref[5, 2] <- df_ref[1, 2]
-  cached_fcn <- cache(my_fcn, prefix, salt, key = "id")
-  cached_fcn(id = 1:5, key = "id", con = dbconn, batch_data = batch_data)
+  df_ref <- batch_data(1:5, switch = TRUE, flip = 4:5)
+  cached_fcn <- cache(batch_data, prefix, salt, key = "id")
+  # Do not cache to con if values of any given column is all missing
+  expect_error(cached_fcn(id = 1:5, con = dbconn, switch = TRUE))
+  cached_fcn(id = 1:5, con = dbconn, switch = TRUE, flip = 5)
+  cached_fcn(id = 4, con = dbconn)
   df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "id")
-  set_NULL(5)
-  cached_fcn(id = 5, key = "id", con = dbconn, batch_data = batch_data)
-  df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "id")
-  expect_equal(df_db, df_ref)
+  expect_equal(dplyr::arrange(df_db, id), dplyr::arrange(df_ref, id))
 })
 
 test_that('Test appending partially overlapped table with missing value', 
 { 
   lapply(dbListTables(dbconn), function(t) dbRemoveTable(dbconn, t))
-  my_fcn <- function(id, key = "id", ...) {
-    set.seed(seed)
-    data.frame("id" = id, "column_test" = rnorm(length(id)))
-  }
-  df_ref <- my_fcn(1:6)
-  df_ref[5, 2] <- df_ref[6, 2] <- df_ref[1, 2]
-  cached_fcn <- cache(my_fcn, prefix, salt, key = "id")
-  cached_fcn(id = 1:5, key = "id", con = dbconn, batch_data = batch_data)
-  df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "id")
-  set_NULL(5)
-  cached_fcn(id = 5:6, key = "id", con = dbconn, batch_data = batch_data)
+  df_ref <- batch_data(1:6, switch = TRUE, flip = c(1, 5, 6))
+  cached_fcn <- cache(batch_data, prefix, salt, key = "id")
+  cached_fcn(id = 1:5, key = "id", con = dbconn, switch = TRUE, flip = 1)
+  cached_fcn(id = 5:6, key = "id", con = dbconn)
   df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "id")
   expect_equal(dplyr::arrange(df_db, id), dplyr::arrange(df_ref, id))
 })
@@ -94,19 +73,12 @@ test_that('Test appending partially overlapped table with missing value',
 test_that('Test appending partially overlapped table with missing value 2', 
 { 
   lapply(dbListTables(dbconn), function(t) dbRemoveTable(dbconn, t))
-  my_fcn <- function(id, key = "id", ...) {
-    set.seed(seed)
-    data.frame("id" = id, "column_test" = rnorm(length(id)))
-  }
-  df_ref <- my_fcn(1:6)
-  df_ref[5, 2] <- df_ref[6, 2] <- df_ref[1, 2]
-  cached_fcn <- cache(my_fcn, prefix, salt, key = "id")
+  df_ref <- batch_data(1:6, switch = TRUE, flip = c(1, 5, 6))
+  cached_fcn <- cache(batch_data, prefix, salt, key = "id")
   cached_fcn(id = 1:5, key = "id", con = dbconn, 
-    batch_data = batch_data, .select = "column_test")
-  df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "id")
-  set_NULL(5)
+    switch = TRUE, flip = 1, .select = c("x", "y"))
   cached_fcn(id = 5:6, key = "id", con = dbconn,
-    batch_data = batch_data, .select = "column_test")
+    .select = c("x", "y"))
   df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "id")
   expect_equal(dplyr::arrange(df_db, id), dplyr::arrange(df_ref, id))
 })
