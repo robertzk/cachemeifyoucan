@@ -14,7 +14,7 @@ cache <- function(fn, prefix, salt, key) {
   stopifnot(is.character(salt))
   stopifnot(is.character(key))
 
-  tbl_name <- paste0(prefix, "_", digest(salt))
+  tbl_name <- table_name(prefix, salt)
 
   function(...) {
     key = formals(fn)$key

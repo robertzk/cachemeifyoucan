@@ -5,12 +5,13 @@ slice <- function(x, n) split(x, as.integer((seq_along(x) - 1) / n))
 #' Fetch table name that caches data for a model version.
 #' 
 #' @name table_name
+#' @param previx character. Prefix.
 #' @param version character. Model version.
 #' @importFrom digest digest
-#' @return the table name. This will just be \code{"version_"}
+#' @return the table name. This will just be \code{"prefix_"}
 #'   appended with the MD5 hash of the model version.
-table_name <- function(version) {
-  paste0("version_", digest(version))
+table_name <- function(prefix, version) {
+  paste0(prefix, "_", digest(version))
 }
 
 #' Fetch the map of column names.
@@ -29,7 +30,7 @@ column_names_map <- function(dbconn) {
 #' @importFrom digest digest
 #' @return the character vector of hashed names.
 get_hashed_names <- function(raw_names) {
-  paste0('c', sapply(raw_names, digest))
+  paste0('c', vapply(raw_names, digest, character(1)))
 }
 
 #' Translate column names using the column_names table from MD5 to raw.
@@ -40,7 +41,7 @@ get_hashed_names <- function(raw_names) {
 translate_column_names <- function(names, dbconn) {
   name_map <- column_names_map(dbconn)
   name_map <- setNames(as.list(name_map$raw_name), name_map$hashed_name)
-  sapply(names, function(name) name_map[[name]] %||% name)
+  vapply(names, function(name) name_map[[name]] %||% name, character(1))
 }
 
 #' Convert the raw fetched database table to a readable data frame.
@@ -84,6 +85,25 @@ remove_rows <- function(dbconn, tblname, ids, key) {
   dbSendQuery(dbconn, paste0("delete from ", tblname, " where ", key, " in (",
     paste(ids, collapse = ","), ")"))
   TRUE
+}
+
+#' Try and check dbWriteTable until success
+#'
+#' @name dbWriteTableUntilSuccess
+#' @param dbconn SQLConnection. A database connection.
+#' @param tblname character. Database table name.
+#' @param df data frame. The data frame to insert.
+#' @importFrom DBI dbWriteTable
+#' @importFrom DBI dbReadTable
+#' @importFrom DBI dbRemoveTable
+dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
+  dbRemoveTable(dbconn, tblname)
+  success <- FALSE
+  while (!success) {
+    dbWriteTable(dbconn, tblname, df, append = FALSE, row.names = 0)
+    df_db <- dbReadTable(dbconn, tblname)
+    if (all.equal(dim(df_db), dim(df))) success = TRUE
+  }
 }
 
 #' Helper utility for safe IO of a data.frame to a database connection.
@@ -135,7 +155,8 @@ write_data_safely <- function(dbconn, tblname, df, key) {
 
     # Store the map of raw to MD5'ed column names in the column_names table.
     if (!dbExistsTable(dbconn, 'column_names'))
-      dbWriteTable(dbconn, 'column_names', column_map, row.names = 0)
+      #dbWriteTable(dbconn, 'column_names', column_map, row.names = 0)
+      dbWriteTableUntilSuccess(dbconn, 'column_names', column_map)
     else {
       raw_names <- dbGetQuery(dbconn, 'SELECT raw_name FROM column_names')[[1]]
       column_map <- column_map[!is.element(column_map$raw_name, raw_names), ]
@@ -154,7 +175,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     df[, id_cols] <- df[, id_cols_ix]
 
     # Convert some types to character so they go in the DB properly.
-    to_chars <- sapply(df, function(x) is.factor(x) || is.ordered(x) || is.logical(x))
+    to_chars <- vapply(df, function(x) is.factor(x) || is.ordered(x) || is.logical(x), logical(1))
     df[, to_chars] <- lapply(df[, to_chars], as.character)
 
     # dbWriteTable(dbconn, tblname, df, row.names = 0, append = TRUE)
@@ -171,7 +192,8 @@ write_data_safely <- function(dbconn, tblname, df, key) {
 
     for (slice in slices) {
       if (!append)  {
-        dbWriteTable(dbconn, tblname, df[slice, , drop = FALSE], row.names = 0)
+        #dbWriteTable(dbconn, tblname, df[slice, , drop = FALSE], append = append, row.names = 0)
+        dbWriteTableUntilSuccess(dbconn, tblname, df)
         append <- TRUE
       } else {
         RPostgreSQL::postgresqlpqExec(dbconn, 
@@ -199,7 +221,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
   removes <- integer(0)
   for (index in which(missing_cols)) {
     col <- new_names[index]
-    if (!all(sapply(col, nchar) > 0))
+    if (!all(vapply(col, nchar, integer(1)) > 0))
       stop("Failed to retrieve MD5 hashed column names in write_data_safely")
     # TODO: (RK) Figure out how to filter all NA columns without wrecking
     # the tables.
@@ -232,7 +254,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
 #'    used in conjunction with postgresqlpgExec.
 build_insert_query <- function(tblname, df) {
   if (any(dim(df) == 0)) return('')
-  tmp <- sapply(df, is.character)
+  tmp <- vapply(df, is.character, logical(1))
   df[, tmp] <- lapply(df[, tmp, drop = FALSE], function(x)
     ifelse(is.na(x), 'NULL', paste0("'", gsub("'", "''", x, fixed = TRUE), "'")))
 

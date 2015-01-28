@@ -29,7 +29,7 @@ test_that('Test inserting new table',
   df_ref <- batch_data(1:5)
   cached_fcn <- cache(batch_data, prefix, salt, key = "id")
   df_cached <- cached_fcn(id = 1:5, con = dbconn)
-  df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "id")
+  df_db <- db2df(dbReadTable(dbconn, table_name(prefix, salt)), dbconn, "id")
   expect_equal(df_cached, df_ref)
   expect_equal(df_db, df_ref)
 })
@@ -41,7 +41,7 @@ test_that('Test appending partially overlapped table',
   cached_fcn <- cache(batch_data, prefix, salt, key = "id")
   cached_fcn(id = 1:5, con = dbconn)
   cached_fcn(id = 5, con = dbconn)
-  df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "id")
+  df_db <- db2df(dbReadTable(dbconn, table_name(prefix, salt)), dbconn, "id")
   expect_equal(df_db, df_ref)
 })
 
@@ -52,7 +52,7 @@ test_that('Test appending fully overlapped table with missing value',
   cached_fcn <- cache(batch_data, prefix, salt, key = "id")
   cached_fcn(id = 1:5, con = dbconn, switch = TRUE, flip = 5)
   cached_fcn(id = 4, con = dbconn)
-  df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "id")
+  df_db <- db2df(dbReadTable(dbconn, table_name(prefix, salt)), dbconn, "id")
   expect_equal(dplyr::arrange(df_db, id), dplyr::arrange(df_ref, id))
 })
 
@@ -63,7 +63,7 @@ test_that('Test appending partially overlapped table with missing value',
   cached_fcn <- cache(batch_data, prefix, salt, key = "id")
   cached_fcn(id = 1:5, key = "id", con = dbconn, switch = TRUE, flip = 1)
   cached_fcn(id = 5:6, key = "id", con = dbconn)
-  df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "id")
+  df_db <- db2df(dbReadTable(dbconn, table_name(prefix, salt)), dbconn, "id")
   expect_equal(dplyr::arrange(df_db, id), dplyr::arrange(df_ref, id))
 })
 
@@ -76,6 +76,6 @@ test_that('Test appending partially overlapped table with missing value 2',
     switch = TRUE, flip = 1, .select = c("x", "y"))
   cached_fcn(id = 5:6, key = "id", con = dbconn,
     .select = c("x", "y"))
-  df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "id")
+  df_db <- db2df(dbReadTable(dbconn, table_name(prefix, salt)), dbconn, "id")
   expect_equal(dplyr::arrange(df_db, id), dplyr::arrange(df_ref, id))
 })
