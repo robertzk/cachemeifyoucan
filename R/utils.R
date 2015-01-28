@@ -162,7 +162,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     # bug that incorrectly serializes some kinds of data into the database.
     # Thus we must roll up our sleeves and write our own INSERT query. :-(
     number_of_records_per_insert_query <- 250
-    slices <- slice(seq_len(nrow(df)), nrow(df) / number_of_records_per_insert_query)
+    slices <- slice(seq_len(nrow(df)), number_of_records_per_insert_query)
 
     # If we don't do this, we will get really weird bugs with numeric things stored as character
     # For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
