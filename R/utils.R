@@ -82,7 +82,7 @@ read_data <- function(dbconn, tblname, ids, key) {
 #' @importFrom DBI dbSendQuery
 remove_rows <- function(dbconn, tblname, ids, key) {
   dbSendQuery(dbconn, paste0("delete from ", tblname, " where ", key, " in (",
-    paste(ids, collapse = " "), ")"))
+    paste(ids, collapse = ","), ")"))
   TRUE
 }
 
@@ -109,15 +109,19 @@ remove_rows <- function(dbconn, tblname, ids, key) {
 #' @param dbconn PostgreSQLConnection. The database connection.
 #' @param tblname character. The table name to write the data into.
 #' @param df data.frame. The data to write.
-write_data_safely <- function(dbconn, tblname, df) {
+#' @param key character. The identifier column name.
+write_data_safely <- function(dbconn, tblname, df, key) {
   if (is.null(df)) return(FALSE)
   if (!is.data.frame(df)) return(FALSE)
   if (nrow(df) == 0) return(FALSE)
 
-  id_cols <- grep('(_|^)id$', colnames(df), value = TRUE)
-  if (length(id_cols) == 0)
-    stop("The data you are writing to the database must contain at least one ",
-         "column ending with '_id'")
+  if (missing(key)) {
+    id_cols <- grep('(_|^)id$', colnames(df), value = TRUE)
+    if (length(id_cols) == 0)
+      stop("The data you are writing to the database must contain at least one ",
+           "column ending with '_id'")
+  } else 
+    id_cols <- key
 
   write_column_names_map <- function(raw_names) {
     hashed_names <- get_hashed_names(raw_names)
@@ -167,18 +171,23 @@ write_data_safely <- function(dbconn, tblname, df) {
 
     for (slice in slices) {
       if (!append)  {
-        dbWriteTable(dbconn, tblname, df[slice, ], row.names = 0)
+        dbWriteTable(dbconn, tblname, df[slice, , drop = FALSE], row.names = 0)
         append <- TRUE
       } else {
-        RPostgreSQL::postgresqlpqExec(dbconn, build_insert_query(tblname, df[slice, ]))
+        RPostgreSQL::postgresqlpqExec(dbconn, 
+          build_insert_query(tblname, df[slice, , drop = FALSE]))
     }}
   }
 
-  if (!dbExistsTable(dbconn, tblname)) {
+  if (!dbExistsTable(dbconn, tblname)) 
+    return(write_column_hashed_data(df, append = FALSE))
+
+  one_row <- dbGetQuery(dbconn, paste("SELECT * FROM ", tblname, " LIMIT 1"))
+  if (nrow(one_row) == 0) {
+    dbRemoveTable(dbconn, tblname)
     return(write_column_hashed_data(df, append = FALSE))
   }
 
-  one_row <- dbGetQuery(dbconn, paste("SELECT * FROM ", tblname, " LIMIT 1"))
   # Columns that are missing in database need to be created
   new_names <- get_hashed_names(colnames(df))
   # We also keep non-hashed versions of ID columns around for convenience.
@@ -191,7 +200,7 @@ write_data_safely <- function(dbconn, tblname, df) {
   for (index in which(missing_cols)) {
     col <- new_names[index]
     if (!all(sapply(col, nchar) > 0))
-      stop("Failed to retrieve MD5 hashed column names in avant:::write_data_safely")
+      stop("Failed to retrieve MD5 hashed column names in write_data_safely")
     # TODO: (RK) Figure out how to filter all NA columns without wrecking
     # the tables.
     if (index > length(df)) index <- col
@@ -257,8 +266,10 @@ get_new_key <- function(dbconn, tbl_name, ids, key) {
 #' @name error_fn
 #' @param data data.frame.
 error_fn <- function(data) {
-  if (!is.data.frame(data))
-    stop("To-be-cached function must return a data frame", call. = FALSE)
-  if(any(lapply(data, function(x) sum(is.na(x))) == nrow(data)))
-    stop("A whole column returned by to-be-cached function is missing", call. = FALSE)
+  if (!is.data.frame(data)) stop("To-be-cached function must return a data frame", call. = FALSE)
+  if (prod(dim(data)) == 0) return(data)
+  all_missing_idx <- vapply(data, function(x) sum(is.na(x)) == nrow(data), logical(1))
+  if(sum(all_missing_idx) == (ncol(data) - 1))
+    stop("All columns except id column returned by to-be-cached function are missing completely", call. = FALSE)
+  data[, !(all_missing_idx), drop = FALSE]
 }

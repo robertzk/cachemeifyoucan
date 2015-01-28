@@ -7,7 +7,6 @@ library(digest)
 # https://github.com/hadley/dplyr/blob/master/vignettes/notes/postgres-setup.Rmd
 prefix <- "version"
 salt <- "model_test"
-seed <- 29
 dbconn <- dbConnect(dbDriver("PostgreSQL"), "feiye")
 
 batch_data <- function(id, salt = "model_test", key = "id", 
@@ -51,8 +50,6 @@ test_that('Test appending fully overlapped table with missing value',
   lapply(dbListTables(dbconn), function(t) dbRemoveTable(dbconn, t))
   df_ref <- batch_data(1:5, switch = TRUE, flip = 4:5)
   cached_fcn <- cache(batch_data, prefix, salt, key = "id")
-  # Do not cache to con if values of any given column is all missing
-  expect_error(cached_fcn(id = 1:5, con = dbconn, switch = TRUE))
   cached_fcn(id = 1:5, con = dbconn, switch = TRUE, flip = 5)
   cached_fcn(id = 4, con = dbconn)
   df_db <- db2df(dbReadTable(dbconn, dbListTables(dbconn)[2]), dbconn, "id")

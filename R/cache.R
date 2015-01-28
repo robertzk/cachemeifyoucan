@@ -34,10 +34,10 @@ cache <- function(fn, prefix, salt, key) {
       data_new <- data.frame()
     } else {
       args[[key]] <- ids_new
-      data_new <- do.call(fn, args)
+      data_new <- do.call(fn, args[!names(args) %in% "con"])
     }
     # Error check on the new data computed from the user-provided function
-    error_fn(data_new)
+    data_new <- error_fn(data_new)
     # Grab the old data (empty data frame when length 0)
     if (length(ids_old) == 0) {
       #cat(paste0("No data is cached", "\n"))
@@ -70,7 +70,7 @@ cache <- function(fn, prefix, salt, key) {
     if (length(ids_missing) > 0) {
       #cat(paste0("These have missing columns: ", paste(ids_missing, collapse = " "), "\n"))
       args[[key]] <- ids_missing
-      data_old <- do.call(fn, args)
+      data_old <- do.call(fn, args[!names(args) %in% "con"])
       # Fetch old data from db
       data_old_db <- read_data(args$con, tbl_name, data_old[[key]], key)
       # Merge on-the-fly data_old with db
@@ -82,11 +82,11 @@ cache <- function(fn, prefix, salt, key) {
         drop = FALSE]
       data_old <- merge(data_old, data_old_db, by = key)
     }
-    error_fn(data_old)
+    data_old <- error_fn(data_old)
     # Combine new data and old data
     df_combine <- plyr::rbind.fill(data_new, data_old)
     # Cache them
-    write_data_safely(args$con, tbl_name, df_combine)
+    write_data_safely(args$con, tbl_name, df_combine, key)
     df_combine
   }
 }
