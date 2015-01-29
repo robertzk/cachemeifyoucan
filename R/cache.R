@@ -7,11 +7,30 @@
 #' have not been computed before.
 #'
 #' @param uncached_function function. The function to cache.
-#' @param prefix character. Database table prefix.
-#' @param key character. Key for the database backend.
-#' @param salt atomic character vector. Database table salt.
-#' @param con SQLConnection. Database connection.
-#' @return a function with a cache layer of database backend.
+#' @param prefix character. Database table prefix. A different prefix should
+#'   be used for each cached function so that there are no table collisions.
+#' @param key character. A character vector of primary keys. The user
+#'   guarantees that \code{uncached_function} has these as formal arguments
+#'   and that it returns a data.frame containing columns with at least those
+#'   names. For example, if we are caching a function that looks like
+#'   \code{function(author) { ... }}, we expect its output to be data.frames
+#'   containing an \code{"author"} column with one record for each author.
+#'   In this situation, \code{key = "author"}.
+#' @param salt character. The names of the formal arguments of \code{uncached_function}
+#'   for which a unique value at calltime should use a different database
+#'   table. In other words, if \code{uncached_function} has arguments 
+#'   \code{id, x, y}, but different kinds of data.frames (i.e., ones with
+#'   different types and/or column names) will be returned depending
+#'   on the value of \code{x} or \code{y}, then we can set
+#'   \code{salt = c("x", "y")} to use a different database table for
+#'   each combination of values of \code{x} and \code{y}. For example,
+#'   if \code{x} and \code{y} are only allowed to be \code{TRUE} or
+#'   \code{FALSE}, with potentially four different kinds of data.frame
+#'   outputs, then up to four tables would be created.
+#' @param con SQLConnection. Database connection object.
+#' @return A function with a caching layer that does not call
+#'   \code{uncached_function} with already computed records, but retrieves
+#'   those results from an underlying database table.
 #' @export
 #' @examples
 #' \dontrun{
@@ -150,7 +169,9 @@
 #' # the columns returned by the data.frame. If these do not agree,
 #' # you can wrap your function. For example, if the data.frame returned
 #' # has 'mth' and 'yr' columns, you could instead cache the wrapper:
-#' wrap_sql_table <- function(table_name, yr, mth, dbname = 'default') { ... }
+#' wrap_sql_table <- function(table_name, yr, mth, dbname = 'default') {
+#'   grab_sql_table(table_name = table_name, year = yr, month = mth, dbname = dbname)
+#' }
 #' }
 cache <- function(uncached_function, prefix, key, salt, con) {
   stopifnot(is.function(uncached_function),
