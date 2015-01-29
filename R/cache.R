@@ -56,7 +56,101 @@
 #' ###
 #' # Salts
 #' ###
+#'
+#' # Imagine our `amazon_info` function is slightly more complicated:
+#' # instead of always returning the same information about film titles,
+#' # it has an additional parameter `type` that controls whether we
+#' # want info about the filmography or about the reviews. The output
+#' # of this function will still be data.frame's with an `id` column
+#' # and one row for each title, but the other columns can be different
+#' # now depending on the `type` parameter.
+#' amazon_info2 <- function(id, type = 'filmography') {
+#'   if (identical(type, 'filmography')) { return(amazon_info(id)) }
+#'   else { return(review_amazon_info(id)) } # Assume we have this other function
+#' }
+#'
+#' # If we wish to cache `amazon_info2`, we need to use different underlying
+#' # database tables depending on the given `type`. One table may have 
+#' # columns like `num_actors` or `film_length` and the other may have
+#' # column such as `num_reviews` and `avg_rating`.
+#' cached_amazon_info2 <- cachemeifyoucan::cache(amazon_info2, key = 'id',
+#'   salt = 'type', con = con)
+#'
+#' # We have told the caching layer to use the `type` parameter as the "salt".
+#' # This means different values of `type` will use different underlying
+#' # database tables for caching. It is up to the user to construct a 
+#' # function like `amazon_info2` well so that it always returns a data.frame
+#' # with exactly the same column names if the `type` parameter is held fixed.
+#' # The salt should usually consist of a collection of parameters (typically
+#' # only one, `type` as in this example) that have a small number of possible
+#' # values; otherwise, many database tables would be created for different
+#' # values of the salt. Consider the following example.
 #' 
+#' bad_amazon_filmography <- function(id, actor_id) {
+#'   # Given a single actor_id and a vector of title IDs,
+#'   # return information about that actor's role in the film.
+#' }
+#' bad_cached_amazon_filmography <-
+#'   cachemeifyoucan::cache(bad_amazon_filmography, key = 'id',
+#'     salt = 'actor_id', con = con)
+#'
+#' # We will now be creating a separate table each time we call
+#' # `bad_amazon_filmography` for a different actor!
+#'
+#' ###
+#' # Prefixes
+#' ###
+#'
+#' # It is very important to give the function you are caching a prefix:
+#' # when it is stored in the database, its table name will be the prefix
+#' # combined with some string derived from the values in the salt.
+#'
+#' cached_review_amazon_info <- cachemeifyoucan::cache(review_amazon_info,
+#'   key = 'id', con = con)
+#'
+#' # Remember our `review_amazon_info` function from an earlier example?
+#' # If we attempted to cache it without a prefix while also caching
+#' # the vanilla `amazon_info` function, the same database table would be
+#' # used for both functions! Since function representation in R is complex
+#' # and there is no good way in general to determine whether two functions
+#' # are identical, it is up to the user to determine a good prefix for
+#' # their function (usually the function's name) so that it does not clash
+#' # with other database tables. 
+#' 
+#' cached_amazon_info <- cachemeifyoucan::cache(amazon_info,
+#'   prefix = 'amazon_info', key = 'id', con = con)
+#' cached_review_amazon_info <- cachemeifyoucan::cache(review_amazon_info,
+#'   prefix = 'review_amazon_info', key = 'id', con = con)
+#'
+#' # We will now use different database tables for these two functions.
+#'
+#' ### 
+#' # Advanced features
+#' ###
+#'
+#' # We can use multiple primary keys and salts.
+#' grab_sql_table <- function(table_name, year, month, dbname = 'default') {
+#'   # Imagine we have some function that given a table name
+#'   # and a database name returns a data.frame with aggregate
+#'   # information about records created in that table from a
+#'   # given year and month (e.g., ensuring each table has a
+#'   # created_at column). This function will return a data.frame
+#'   # with one record for each year-month pair, with at least
+#'   # the columns "year" and "month".
+#' }
+#'
+#' cached_sql_table <- cachemeifyoucan::cache(grab_sql_table,
+#'   key = c('year', 'month'), salt = c('table_name', 'dbname'), con = con,
+#'   prefix = 'sql_table')
+#'
+#' # We would like to use a separate table to cache each combination of
+#' # table_name and dbname. Note that the character vector passed into
+#' # the `salt` parameter has to exactly match the names of the formal
+#' # arguments in the initial function, and must also be the name of
+#' # the columns returned by the data.frame. If these do not agree,
+#' # you can wrap your function. For example, if the data.frame returned
+#' # has 'mth' and 'yr' columns, you could instead cache the wrapper:
+#' wrap_sql_table <- function(table_name, yr, mth, dbname = 'default') { ... }
 #' }
 cache <- function(uncached_function, prefix, key, salt, con) {
   stopifnot(is.function(uncached_function),
