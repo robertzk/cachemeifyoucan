@@ -7,6 +7,26 @@ cached_function_call <- function(fn, call, context, table, key, con) {
     class = 'cached_function_call')
 }
 
+data_injector <- function(fcn_call, keys, cached) {
+  if (length(keys) == 0)
+      return(data.frame())
+  if (cached) data_injector_cached(fcn_call, keys)
+  else data_injector_uncached(fcn_call, keys)
+}
+
+data_injector_uncached <- function(fcn_call, keys) {
+  fcn_call$call[[fcn_call$key]] <- keys
+  eval(as.call(append(fcn_call$fn, fcn_call$call)),
+    envir = fcn_call$context)
+}
+
+data_injector_cached <- function(fcn_call, keys) {
+  db2df(dbGetQuery(fcn_call$con,
+    paste("SELECT * FROM", fcn_call$table, "WHERE", fcn_call$key, "IN (",
+    paste(cached_keys, collapse = ', '), ")")), 
+    fcn_call$con, fcn_call$key)
+}
+
 #' Fetch table name that caches data for a model version.
 #' 
 #' @name table_name

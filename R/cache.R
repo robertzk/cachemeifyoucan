@@ -45,40 +45,18 @@ execute <- function(fcn_call) {
   # Grab the new/old ids (might be integer(0))
   uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$key)
   cached_keys <- setdiff(keys, uncached_keys)
-  # Work on the new data
-  if (length(uncached_keys) == 0) {
-    #cat(paste0("All data is cached, unless they are missing", "\n"))
-    uncached_data <- data.frame()
-  } else {
-    fcn_call$call[[fcn_call$key]] <- uncached_keys
-    uncached_data <- eval(as.call(append(fcn_call$fn, fcn_call$call)),
-      envir = fcn_call$context)
-  }
+  # Work on the uncached data
+  uncached_data <- data_injector(fcn_call, uncached_keys, FALSE)
   # Error check on the uncached data computed from the user-provided function
   uncached_data <- error_fn(uncached_data)
   # Grab the cached data (empty data frame when length 0)
-  if (length(cached_keys) == 0) {
-    #cat(paste0("No data is cached", "\n"))
-    cached_data <- data.frame()
-  } else {
-      #cat(paste0("These are cached: ", paste(cached_keys, collapse = " "), "\n"))
-      cached_data <- db2df(dbGetQuery(fcn_call$con,
-        paste("SELECT * FROM", fcn_call$table, "WHERE", fcn_call$key, "IN (",
-        paste(cached_keys, collapse = ', '), ")")), 
-        fcn_call$con, fcn_call$key)
-  }
+  cached_data <- data_injector(fcn_call, cached_keys, TRUE)
   # Check on the cached data, recompute ids if missing on a given row
-  if (ncol(uncached_data) > 0)
-    colnames_check <- setdiff(colnames(uncached_data), fcn_call$key)
-  if (!exists("colnames_check", inherits = FALSE)) {
-    missing_keys <- sapply(cached_keys, 
-      function(x) switch(2 - any(is.na(cached_data[x, ])), x, NA))
-    missing_keys <- missing_keys[!is.na(missing_keys)]
-  } else {
-    missing_keys <- sapply(cached_keys, 
-      function(x) switch(2 - any(is.na(cached_data[x, colnames_check])), x, NA))
-    missing_keys <- missing_keys[!is.na(missing_keys)]
-  }
+  missing_keys <- sapply(cached_keys, 
+    function(x) switch(2 - any(is.na(cached_data[x, 
+    switch(1 + (ncol(uncached_data) > 0), TRUE, 
+      setdiff(colnames(uncached_data), fcn_call$key))])), x, NA))
+  missing_keys <- missing_keys[!is.na(missing_keys)]
   cached_data <- data.frame()
   if (length(missing_keys) > 0) {
     #cat(paste0("These have missing columns: ", paste(missing_keys, collapse = " "), "\n"))
