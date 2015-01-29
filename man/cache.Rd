@@ -4,16 +4,18 @@
 \alias{cache}
 \title{Closure of a cache layer}
 \usage{
-cache(fn, prefix, salt, key)
+cache(uncached_function, prefix, key, salt, con)
 }
 \arguments{
-\item{fn.}{The function to cache.}
+\item{uncached_function}{function. The function to cache.}
 
-\item{prefix.}{Database table prefix.}
+\item{prefix}{character. Database table prefix.}
 
-\item{salt.}{Database table salt.}
+\item{key}{character. Key for the database backend.}
 
-\item{key.}{Keys for the database backend.}
+\item{salt}{atomic character vector. Database table salt.}
+
+\item{con}{SQLConnection. Database connection.}
 }
 \value{
 a function with a cache layer of database backend.

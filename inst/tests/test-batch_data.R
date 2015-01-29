@@ -1,4 +1,4 @@
-context('cachemeifyoucan')
+context('cachemeifyoucan:batch_data')
 library(RPostgreSQL)
 library(digest)
 library(avant)

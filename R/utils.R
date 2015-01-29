@@ -2,6 +2,11 @@
 
 slice <- function(x, n) split(x, as.integer((seq_along(x) - 1) / n))
 
+cached_function_call <- function(fn, call, context, table, key, con) {
+  structure(list(fn = fn, call = call, context = context, table = table, key = key, con = con), 
+    class = 'cached_function_call')
+}
+
 #' Fetch table name that caches data for a model version.
 #' 
 #' @name table_name
@@ -11,7 +16,7 @@ slice <- function(x, n) split(x, as.integer((seq_along(x) - 1) / n))
 #' @return the table name. This will just be \code{"prefix_"}
 #'   appended with the MD5 hash of the model version.
 table_name <- function(prefix, version) {
-  paste0(prefix, "_", digest(version))
+  paste0(prefix, "_", digest(paste(version, collapse = "_")))
 }
 
 #' Fetch the map of column names.

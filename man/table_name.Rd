@@ -4,13 +4,15 @@
 \alias{table_name}
 \title{Fetch table name that caches data for a model version.}
 \usage{
-table_name(version)
+table_name(prefix, version)
 }
 \arguments{
 \item{version}{character. Model version.}
+
+\item{previx}{character. Prefix.}
 }
 \value{
-the table name. This will just be \code{"version_"}
+the table name. This will just be \code{"prefix_"}
   appended with the MD5 hash of the model version.
 }
 \description{

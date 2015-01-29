@@ -4,7 +4,7 @@
 \alias{write_data_safely}
 \title{Helper utility for safe IO of a data.frame to a database connection.}
 \usage{
-write_data_safely(dbconn, tblname, df)
+write_data_safely(dbconn, tblname, df, key)
 }
 \arguments{
 \item{dbconn}{PostgreSQLConnection. The database connection.}
@@ -12,6 +12,8 @@ write_data_safely(dbconn, tblname, df)
 \item{tblname}{character. The table name to write the data into.}
 
 \item{df}{data.frame. The data to write.}
+
+\item{key}{character. The identifier column name.}
 }
 \description{
 This function will be mindful of two problems: non-existent columns
