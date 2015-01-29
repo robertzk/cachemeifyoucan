@@ -7,10 +7,11 @@ cached_function_call <- function(fn, call, context, table, key, con) {
     class = 'cached_function_call')
 }
 
-data_injector <- function(fcn_call, keys, cached) {
+data_injector <- function(fcn_call, keys, cached, missing) {
   if (length(keys) == 0)
       return(data.frame())
-  if (cached) data_injector_cached(fcn_call, keys)
+  if (cached && !missing) data_injector_cached(fcn_call, keys)
+  else if (cached && missing) data_injector_missing(fcn_call, keys)
   else data_injector_uncached(fcn_call, keys)
 }
 
@@ -23,15 +24,33 @@ data_injector_uncached <- function(fcn_call, keys) {
 data_injector_cached <- function(fcn_call, keys) {
   db2df(dbGetQuery(fcn_call$con,
     paste("SELECT * FROM", fcn_call$table, "WHERE", fcn_call$key, "IN (",
-    paste(cached_keys, collapse = ', '), ")")), 
+    paste(keys, collapse = ', '), ")")), 
     fcn_call$con, fcn_call$key)
+}
+
+data_injector_missing <- function(fcn_call, keys) {
+  fcn_call$call[[fcn_call$key]] <- keys
+  cached_data <- eval(as.call(append(fcn_call$fn, fcn_call$call)),
+    envir = fcn_call$context)
+  # Fetch cached data from db
+  cached_data_db <- read_data(fcn_call$con, fcn_call$table, 
+    cached_data[[fcn_call$key]], fcn_call$key)
+  # Merge on-the-fly cached data with db
+  # Stop if something happens concurrently, 
+  # pretending the following line of code are atomically executed...
+  stopifnot(setequal(cached_data_db[[fcn_call$key]], cached_data[[fcn_call$key]]), 
+      remove_rows(fcn_call$con, fcn_call$table, 
+        cached_data[[fcn_call$key]], fcn_call$key))
+  cached_data_db <- cached_data_db[, !colnames(cached_data_db) %in% 
+    setdiff(colnames(cached_data), fcn_call$key), drop = FALSE]
+  merge(cached_data, cached_data_db, by = fcn_call$key)
 }
 
 #' Fetch table name that caches data for a model version.
 #' 
 #' @name table_name
 #' @param previx character. Prefix.
-#' @param version character. Model version.
+#' @param version atomic character vector. Model version.
 #' @importFrom digest digest
 #' @return the table name. This will just be \code{"prefix_"}
 #'   appended with the MD5 hash of the model version.

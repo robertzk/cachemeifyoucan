@@ -7,7 +7,7 @@
 table_name(prefix, version)
 }
 \arguments{
-\item{version}{character. Model version.}
+\item{version}{atomic character vector. Model version.}
 
 \item{previx}{character. Prefix.}
 }
