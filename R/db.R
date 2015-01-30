@@ -1,13 +1,13 @@
-#' Fetch table name that caches data for a model version.
+#' Database table name for a given prefix and salt.
 #' 
 #' @name table_name
-#' @param previx character. Prefix.
-#' @param version atomic character vector. Model version.
+#' @param prefix character. Prefix.
+#' @param salt list. Salt for the table name.
 #' @importFrom digest digest
 #' @return the table name. This will just be \code{"prefix_"}
-#'   appended with the MD5 hash of the model version.
-table_name <- function(prefix, version) {
-  paste0(prefix, "_", digest(paste(version, collapse = "_")))
+#'   appended with the MD5 hash of the digest of the \code{salt}.
+table_name <- function(prefix, salt) {
+  paste0(prefix, "_", digest::digest(salt))
 }
 
 #' Fetch the map of column names.

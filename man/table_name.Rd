@@ -2,20 +2,20 @@
 % Please edit documentation in R/db.R
 \name{table_name}
 \alias{table_name}
-\title{Fetch table name that caches data for a model version.}
+\title{Database table name for a given prefix and salt.}
 \usage{
-table_name(prefix, version)
+table_name(prefix, salt)
 }
 \arguments{
-\item{version}{atomic character vector. Model version.}
+\item{prefix}{character. Prefix.}
 
-\item{previx}{character. Prefix.}
+\item{salt}{list. Salt for the table name.}
 }
 \value{
 the table name. This will just be \code{"prefix_"}
-  appended with the MD5 hash of the model version.
+  appended with the MD5 hash of the digest of the \code{salt}.
 }
 \description{
-Fetch table name that caches data for a model version.
+Database table name for a given prefix and salt.
 }
 
