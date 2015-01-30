@@ -44,11 +44,11 @@ local({
     })
   })
 
-  test_that('appending partially overlapped table', { 
+  test_that('retrieving partial result from cache works', { 
     expect_cached({
       df_ref <- batch_data(1:5)
       cached_fcn(id = 1:5, model_version, type)
-      cached_fcn(id = 5, model_version, type)
+      expect_equal(df_ref[1, ], cached_fcn(id = 1, model_version, type))
     })
   })
 
