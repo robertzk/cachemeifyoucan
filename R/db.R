@@ -69,20 +69,6 @@ read_data <- function(dbconn, tblname, ids, key) {
   df[df[[id_col]] == ids, , drop = FALSE]
 }
 
-#' Remove rows from a table in the database.
-#'
-#' @name remove_rows
-#' @param dbconn SQLConnection. A database connection.
-#' @param tblname character. Database table name.
-#' @param ids vector. A vector of ids.
-#' @param key character. Table key.
-#' @importFrom DBI dbSendQuery
-remove_rows <- function(dbconn, tblname, ids, key) {
-  dbSendQuery(dbconn, paste0("delete from ", tblname, " where ", key, " in (",
-    paste(ids, collapse = ","), ")"))
-  TRUE
-}
-
 #' Try and check dbWriteTable until success
 #'
 #' @name dbWriteTableUntilSuccess
@@ -98,7 +84,7 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
   while (!success) {
     dbWriteTable(dbconn, tblname, df, append = FALSE, row.names = 0)
     df_db <- dbReadTable(dbconn, tblname)
-    if (all.equal(dim(df_db), dim(df))) success = TRUE
+    if (all.equal(dim(df_db), dim(df))) { success <- TRUE }
   }
 }
 
