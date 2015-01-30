@@ -8,8 +8,7 @@ prefix <- "version"
 version <- "default/en-US/2.2.1"
 dbconn <- DBI::dbConnect(dbDriver("PostgreSQL"), "robk")
 
-test_that('Test caching actually works for avant::batch_data', 
-{  
+test_that('Test caching actually works for avant::batch_data', {  
   return() # Comment out for now
   # First remove all tables in the local database.
   lapply(dbListTables(dbconn), function(t) dbRemoveTable(dbconn, t))
