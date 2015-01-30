@@ -227,26 +227,13 @@ build_cached_function <- function(cached_function) {
 
 # A helper function to execute a cached function call.
 execute <- function(fcn_call) {
-  key  <- eval(fcn_call$key,         envir = fcn_call$context)
-  keys <- eval(fcn_call$call[[key]], envir = fcn_call$context)
-
   # Grab the new/old keys
+  keys <- fcn_call$key_value
   uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$key)
   cached_keys <- setdiff(keys, uncached_keys)
-  # Work on the uncached data
-  uncached_data <- data_injector(fcn_call, uncached_keys, FALSE)
-  # Error check on the uncached data computed from the user-provided function
-  uncached_data <- error_fn(uncached_data)
-  # Grab the cached data
-  cached_data <- data_injector(fcn_call, cached_keys, TRUE, FALSE)
-  # Check on the cached data, recompute ids if missing on a given row
-  missing_keys <- sapply(cached_keys, 
-    function(x) switch(2 - any(is.na(cached_data[x, 
-    switch(1 + (ncol(uncached_data) > 0), TRUE, 
-      setdiff(colnames(uncached_data), fcn_call$key))])), x, NA))
-  missing_keys <- missing_keys[!is.na(missing_keys)]
-  cached_data <- data_injector(fcn_call, missing_keys, TRUE, TRUE)
-  cached_data <- error_fn(cached_data)
+
+  uncached_data <- compute_uncached_data(fcn_call, uncached_keys)
+  cached_data   <- compute_cached_data(fcn_call, cached_keys)
 
   # Cache them
   write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$key)
@@ -255,8 +242,17 @@ execute <- function(fcn_call) {
   data[match(keys, data[[key]]), ] # Re-arrange back into expected order
 }
 
+compute_uncached_data <- function(fcn_call, uncached_keys) {
+  error_fn(data_injector(fcn_call, uncached_keys, FALSE))
+}
+
+compute_cached_data <- function(fcn_call, cached_keys) {
+  error_fn(data_injector(fcn_call, cached_keys, TRUE, FALSE))
+}
+
 cached_function_call <- function(fn, call, context, table, key, con) {
-  structure(list(fn = fn, call = call, context = context, table = table, key = key, con = con), 
+  structure(list(fn = fn, call = call, context = context, table = table, key = key,
+                 key_value = eval(call[[key]], envir = context), con = con), 
     class = 'cached_function_call')
 }
 
