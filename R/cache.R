@@ -227,7 +227,8 @@ build_cached_function <- function(cached_function) {
 
 # A helper function to execute a cached function call.
 execute <- function(fcn_call) {
-  keys <- eval(fcn_call$call[[fcn_call$key]], envir = fcn_call$context)
+  key  <- eval(fcn_call$key,         envir = fcn_call$context)
+  keys <- eval(fcn_call$call[[key]], envir = fcn_call$context)
 
   # Grab the new/old keys
   uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$key)
@@ -250,8 +251,8 @@ execute <- function(fcn_call) {
   # Cache them
   write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$key)
 
-  # Combine uncached and cached data
-  plyr::rbind.fill(uncached_data, cached_data)
+  data <- plyr::rbind.fill(uncached_data, cached_data)
+  data[match(keys, data[[key]]), ] # Re-arrange back into expected order
 }
 
 cached_function_call <- function(fn, call, context, table, key, con) {
