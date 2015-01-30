@@ -77,6 +77,17 @@ local({
   test_that('re-arranging in the correct order happens when using the cache', {
     expect_cached({
       df_ref <- batch_data(1:5, model_version, type)
+      cached_fcn(id = 1:5, model_version, type)
+      expect_equal(without_rownames(df_ref[5:1, ]),
+                   without_rownames(cached_fcn(id = 5:1, model_version, type)))
+      no_check <- TRUE
+    })
+  })
+
+  test_that('re-arranging in the correct order happens when using the cache with partially new results', {
+    expect_cached({
+      df_ref <- batch_data(1:5, model_version, type)
+      cached_fcn(id = 1:3, model_version, type)
       expect_equal(without_rownames(df_ref[5:1, ]),
                    without_rownames(cached_fcn(id = 5:1, model_version, type)))
       no_check <- TRUE
