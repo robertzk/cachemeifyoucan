@@ -4,13 +4,10 @@
 \alias{cache}
 \title{Apply a database caching layer to an arbitrary R function.}
 \usage{
-cache(uncached_function, prefix, key, salt, con)
+cache(uncached_function, key, salt, con, prefix)
 }
 \arguments{
 \item{uncached_function}{function. The function to cache.}
-
-\item{prefix}{character. Database table prefix. A different prefix should
-be used for each cached function so that there are no table collisions.}
 
 \item{key}{character. A character vector of primary keys. The user
 guarantees that \code{uncached_function} has these as formal arguments
@@ -33,6 +30,10 @@ if \code{x} and \code{y} are only allowed to be \code{TRUE} or
 outputs, then up to four tables would be created.}
 
 \item{con}{SQLConnection. Database connection object.}
+
+\item{prefix}{character. Database table prefix. A different prefix should
+be used for each cached function so that there are no table collisions.
+Optional, but highly recommended.}
 }
 \value{
 A function with a caching layer that does not call

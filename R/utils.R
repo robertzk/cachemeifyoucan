@@ -2,11 +2,6 @@
 
 slice <- function(x, n) split(x, as.integer((seq_along(x) - 1) / n))
 
-cached_function_call <- function(fn, call, context, table, key, con) {
-  structure(list(fn = fn, call = call, context = context, table = table, key = key, con = con), 
-    class = 'cached_function_call')
-}
-
 data_injector <- function(fcn_call, keys, cached, missing) {
   if (length(keys) == 0)
       return(data.frame())

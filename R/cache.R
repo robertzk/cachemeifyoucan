@@ -7,8 +7,6 @@
 #' have not been computed before.
 #'
 #' @param uncached_function function. The function to cache.
-#' @param prefix character. Database table prefix. A different prefix should
-#'   be used for each cached function so that there are no table collisions.
 #' @param key character. A character vector of primary keys. The user
 #'   guarantees that \code{uncached_function} has these as formal arguments
 #'   and that it returns a data.frame containing columns with at least those
@@ -27,6 +25,9 @@
 #'   if \code{x} and \code{y} are only allowed to be \code{TRUE} or
 #'   \code{FALSE}, with potentially four different kinds of data.frame
 #'   outputs, then up to four tables would be created.
+#' @param prefix character. Database table prefix. A different prefix should
+#'   be used for each cached function so that there are no table collisions.
+#'   Optional, but highly recommended.
 #' @param con SQLConnection. Database connection object.
 #' @return A function with a caching layer that does not call
 #'   \code{uncached_function} with already computed records, but retrieves
@@ -173,27 +174,48 @@
 #'   grab_sql_table(table_name = table_name, year = yr, month = mth, dbname = dbname)
 #' }
 #' }
-cache <- function(uncached_function, prefix, key, salt, con) {
+cache <- function(uncached_function, key, salt, con, prefix) {
   stopifnot(is.function(uncached_function),
-    is.character(prefix),
-    is.character(key),
+    is.character(prefix), length(prefix) == 1,
+    is.character(key), length(key) > 0,
     is.atomic(salt) || is.list(salt))
 
   cached_function <- new("function")
 
+  # Retain the same formal arguments as the base function.
   formals(cached_function) <- formals(uncached_function)
 
+  # Inject some values we will need in the body of the caching layer.
   environment(cached_function) <- 
     list2env(list(prefix = prefix, key = key, salt = salt,
       uncached_function = uncached_function, con = con),
       parent = environment(uncached_function))
 
+  build_cached_function(cached_function)
+}
+
+build_cached_function <- function(cached_function) {
+  # All cached functions will have the same body.
   body(cached_function) <- quote({
+    # If a user calls the uncached_function with, e.g.,
+    #   fn <- function(x, y) { ... }
+    #   fn(1:2), fn(x = 1:2), fn(y = 5, 1:2), fn(y = 5, x = 1:2)
+    # then `call` will be a list with names "x" and "y" in all
+    # situations.
     raw_call <- match.call()
-    call <- as.list(raw_call[-1])
+    call     <- as.list(raw_call[-1]) # Strip function name but retain arguments.
+     
+    # Only apply salt on provided values.
     true_salt <- call[intersect(names(call), salt)]
-    for (name in names(true_salt)) 
+    
+    # Since the values in `call` might be expressions, evaluate them
+    # in the calling environment to get their actual values.
+    for (name in names(true_salt)) {
       true_salt[[name]] <- eval.parent(true_salt[[name]])
+    }
+
+    # The database table to use is determined by the prefix and
+    # what values of the salted parameters were used at calltime.
     tbl_name <- cachemeifyoucan:::table_name(prefix, true_salt)
     execute(
       cached_function_call(uncached_function, call, parent.frame(), tbl_name, key, con)
@@ -203,9 +225,10 @@ cache <- function(uncached_function, prefix, key, salt, con) {
   cached_function
 }
 
-#' A helper function to execute the cached function call
+# A helper function to execute a cached function call.
 execute <- function(fcn_call) {
   keys <- eval(fcn_call$call[[fcn_call$key]], envir = fcn_call$context)
+
   # Grab the new/old keys
   uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$key)
   cached_keys <- setdiff(keys, uncached_keys)
@@ -229,3 +252,9 @@ execute <- function(fcn_call) {
   write_data_safely(fcn_call$con, fcn_call$table, df_combine, fcn_call$key)
   df_combine
 }
+
+cached_function_call <- function(fn, call, context, table, key, con) {
+  structure(list(fn = fn, call = call, context = context, table = table, key = key, con = con), 
+    class = 'cached_function_call')
+}
+
