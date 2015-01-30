@@ -239,7 +239,7 @@ execute <- function(fcn_call) {
   write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$key)
 
   data <- plyr::rbind.fill(uncached_data, cached_data)
-  data[match(keys, data[[key]]), ] # Re-arrange back into expected order
+  data[match(keys, data[[fcn_call$key]]), ] # Re-arrange back into expected order
 }
 
 compute_uncached_data <- function(fcn_call, uncached_keys) {
