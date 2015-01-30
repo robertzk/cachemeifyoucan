@@ -52,15 +52,16 @@ local({
     })
   })
 
-  test_that('appending fully overlapped table with missing value', { 
+  test_that('attempting to populate a new row with a different value fails due to cache hit', { 
     expect_cached({
       df_ref <- batch_data(1:5, switch = TRUE, flip = 4:5)
       cached_fcn(id = 1:5, model_version, type, switch = TRUE, flip = 4:5)
       cached_fcn(id = 4, model_version, type)
+      cached_df <- cached_fcn(1:5, switch = TRUE, flip = 4:5)
     })
   })
 
-  test_that('appending partially overlapped table with missing value', { 
+  test_that('appending partially overlapped table adds to cache', { 
     expect_cached({
       df_ref <- batch_data(1:5, model_version, type, switch = TRUE, flip = 1)
       df_ref <- rbind(df_ref, batch_data(6, model_version, type))
