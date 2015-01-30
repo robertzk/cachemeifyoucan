@@ -272,22 +272,10 @@ build_insert_query <- function(tblname, df) {
 #' @importFrom DBI dbGetQuery
 get_new_key <- function(dbconn, tbl_name, ids, key) {
   if (length(ids) == 0) return(integer(0))
-  if (!dbExistsTable(dbconn, tbl_name)) return(ids)
+  if (!DBI::dbExistsTable(dbconn, tbl_name)) return(ids)
   id_column_name <- get_hashed_names(key)
-  present_ids <- dbGetQuery(dbconn, paste0(
+  present_ids <- DBI::dbGetQuery(dbconn, paste0(
     "SELECT ", id_column_name, " FROM ", tbl_name))[[1]]
   setdiff(ids, present_ids)
 }
 
-#' Stop on given errors and print corresponding error message.
-#'
-#' @name error_fn
-#' @param data data.frame.
-error_fn <- function(data) {
-  if (!is.data.frame(data)) stop("To-be-cached function must return a data frame", call. = FALSE)
-  if (prod(dim(data)) == 0) return(data)
-  all_missing_idx <- vapply(data, function(x) sum(is.na(x)) == nrow(data), logical(1))
-  if(sum(all_missing_idx) == (ncol(data) - 1))
-    stop("All columns except id column returned by to-be-cached function are missing completely", call. = FALSE)
-  data[, !(all_missing_idx), drop = FALSE]
-}
