@@ -1,8 +1,8 @@
 #' One of the most frustrating parts about being a data scientist
 #' is waiting for data or other large downloads. This package offers a caching
-#' layer for arbitrary functions that relies on a PostgreSQL backend.
+#' layer for arbitrary functions that relies on a database backend.
 #'
-#' @name cachemifyoucan
+#' @name cachemeifyoucan
 #' @docType package
 #' @import testthatsomemore berdie
 NULL
