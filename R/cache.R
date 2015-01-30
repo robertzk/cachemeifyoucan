@@ -283,11 +283,10 @@ data_injector_cached <- function(fcn_call, keys) {
 #' @name error_fn
 #' @param data data.frame.
 error_fn <- function(data) {
-  if (!is.data.frame(data)) stop("To-be-cached function must return a data frame", call. = FALSE)
-  if (prod(dim(data)) == 0) return(data)
-  all_missing_idx <- vapply(data, function(x) sum(is.na(x)) == nrow(data), logical(1))
-  if(sum(all_missing_idx) == (ncol(data) - 1))
-    stop("All columns except id column returned by to-be-cached function are missing completely", call. = FALSE)
-  data[, !(all_missing_idx), drop = FALSE]
+  if (!is.data.frame(data)) {
+    stop("Function cached with cachemeifyoucan ",
+         "package must return data.frame outputs", call. = FALSE)
+  }
+  data
 }
 
