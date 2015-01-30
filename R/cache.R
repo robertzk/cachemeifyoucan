@@ -246,11 +246,12 @@ execute <- function(fcn_call) {
   missing_keys <- missing_keys[!is.na(missing_keys)]
   cached_data <- data_injector(fcn_call, missing_keys, TRUE, TRUE)
   cached_data <- error_fn(cached_data)
-  # Combine uncached and cached data
-  df_combine <- plyr::rbind.fill(uncached_data, cached_data)
+
   # Cache them
-  write_data_safely(fcn_call$con, fcn_call$table, df_combine, fcn_call$key)
-  df_combine
+  write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$key)
+
+  # Combine uncached and cached data
+  plyr::rbind.fill(uncached_data, cached_data)
 }
 
 cached_function_call <- function(fn, call, context, table, key, con) {
