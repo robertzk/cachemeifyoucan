@@ -174,11 +174,12 @@
 #'   grab_sql_table(table_name = table_name, year = yr, month = mth, dbname = dbname)
 #' }
 #' }
-cache <- function(uncached_function, key, salt, con, prefix) {
+cache <- function(uncached_function, key, salt, con, prefix, force = FALSE) {
   stopifnot(is.function(uncached_function),
     is.character(prefix), length(prefix) == 1,
     is.character(key), length(key) > 0,
-    is.atomic(salt) || is.list(salt))
+    is.atomic(salt) || is.list(salt),
+    is.logical(force))
 
   cached_function <- new("function")
 
@@ -188,7 +189,7 @@ cache <- function(uncached_function, key, salt, con, prefix) {
   # Inject some values we will need in the body of the caching layer.
   environment(cached_function) <- 
     list2env(list(prefix = prefix, key = key, salt = salt,
-      uncached_function = uncached_function, con = con),
+      uncached_function = uncached_function, con = con, force = force),
       parent = environment(uncached_function))
 
   build_cached_function(cached_function)
@@ -218,7 +219,7 @@ build_cached_function <- function(cached_function) {
     # what values of the salted parameters were used at calltime.
     tbl_name <- cachemeifyoucan:::table_name(prefix, true_salt)
     execute(
-      cached_function_call(uncached_function, call, parent.frame(), tbl_name, key, con)
+      cached_function_call(uncached_function, call, parent.frame(), tbl_name, key, con, force)
     )
   })
 
@@ -229,7 +230,10 @@ build_cached_function <- function(cached_function) {
 execute <- function(fcn_call) {
   # Grab the new/old keys
   keys <- fcn_call$key_value
-  uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$key)
+  if (fcn_call$force)
+    uncached_keys <- keys
+  else
+    uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$key)
   cached_keys <- setdiff(keys, uncached_keys)
 
   uncached_data <- compute_uncached_data(fcn_call, uncached_keys)
@@ -250,9 +254,9 @@ compute_cached_data <- function(fcn_call, cached_keys) {
   error_fn(data_injector(fcn_call, cached_keys, TRUE))
 }
 
-cached_function_call <- function(fn, call, context, table, key, con) {
+cached_function_call <- function(fn, call, context, table, key, con, force) {
   structure(list(fn = fn, call = call, context = context, table = table, key = key,
-                 key_value = eval(call[[key]], envir = context), con = con), 
+                 key_value = eval(call[[key]], envir = context), con = con, force = force), 
     class = 'cached_function_call')
 }
 
@@ -289,4 +293,3 @@ error_fn <- function(data) {
   }
   data
 }
-

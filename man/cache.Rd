@@ -4,7 +4,7 @@
 \alias{cache}
 \title{Apply a database caching layer to an arbitrary R function.}
 \usage{
-cache(uncached_function, key, salt, con, prefix)
+cache(uncached_function, key, salt, con, prefix, force = FALSE)
 }
 \arguments{
 \item{uncached_function}{function. The function to cache.}
