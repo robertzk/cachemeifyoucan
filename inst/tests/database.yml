@@ -1,2 +1,9 @@
 cache:
   adapter: PostgreSQL
+
+avant:
+  adapter: PostgreSQL 
+  dbname: avant_dev
+  user: tonglu
+  password: ''
+  host: 10.1.3.150

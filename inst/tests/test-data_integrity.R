@@ -15,5 +15,5 @@ describe("data integrity", {
     })
   })
 
-  RPostgreSQL::postgresqlCloseConnection(dbconn)
+  dbDisconnect(dbconn)
 })
