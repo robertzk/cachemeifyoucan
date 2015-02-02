@@ -1,5 +1,5 @@
 context('cache function')
-library(RPostgreSQL)
+library(DBI)
 
 # Set up test fixture
 # Set up local database for now
@@ -61,6 +61,6 @@ describe("cache function", {
     })
   })
 
-  RPostgreSQL::postgresqlCloseConnection(dbconn)
+  dbDisconnect(dbconn)
 })
 
