@@ -81,6 +81,7 @@ read_data <- function(dbconn, tblname, ids, key) {
 dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
   dbRemoveTable(dbconn, tblname)
   success <- FALSE
+  df[, vapply(df, pryr::compose(all, is.na), logical(1))] <- as.character(NA)
   while (!success) {
     dbWriteTable(dbconn, tblname, df, append = FALSE, row.names = 0)
     num_rows <- dbGetQuery(dbconn, paste0('SELECT COUNT(*) FROM ', tblname))
