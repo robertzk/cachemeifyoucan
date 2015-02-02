@@ -5,7 +5,7 @@ library(RPostgreSQL)
 # Set up local database for now
 # https://github.com/hadley/dplyr/blob/master/vignettes/notes/postgres-setup.Rmd
 describe("cache function", {
-  dbconn <- DBI::dbConnect(dbDriver("PostgreSQL"), "robk")
+  dbconn <- DBI::dbConnect(dbDriver("PostgreSQL"), "feiye")
 
   test_that('calling the cached function for the first time populated a new table', {  
     # First remove all tables in the local database.

@@ -6,7 +6,7 @@ library(RPostgreSQL)
 # https://github.com/hadley/dplyr/blob/master/vignettes/notes/postgres-setup.Rmd
 prefix <- "version"
 version <- "default/en-US/2.2.1"
-dbconn <- DBI::dbConnect(dbDriver("PostgreSQL"), "robk")
+dbconn <- DBI::dbConnect(dbDriver("PostgreSQL"), "feiye")
 
 test_that('Test caching actually works for avant::batch_data', {  
   return() # Comment out for now

@@ -1,7 +1,7 @@
 context('data integrity')
 
 describe("data integrity", {
-  dbconn <- DBI::dbConnect(dbDriver("PostgreSQL"), "robk")
+  dbconn <- DBI::dbConnect(dbDriver("PostgreSQL"), "feiye")
 
   test_that('it can expand a table if a new column pops up in later entries', {
     expect_cached({

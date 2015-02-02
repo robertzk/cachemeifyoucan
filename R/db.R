@@ -76,15 +76,15 @@ read_data <- function(dbconn, tblname, ids, key) {
 #' @param tblname character. Database table name.
 #' @param df data frame. The data frame to insert.
 #' @importFrom DBI dbWriteTable
-#' @importFrom DBI dbReadTable
+#' @importFrom DBI dbGetQuery
 #' @importFrom DBI dbRemoveTable
 dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
   dbRemoveTable(dbconn, tblname)
   success <- FALSE
   while (!success) {
     dbWriteTable(dbconn, tblname, df, append = FALSE, row.names = 0)
-    df_db <- dbReadTable(dbconn, tblname)
-    if (all.equal(dim(df_db), dim(df))) { success <- TRUE }
+    num_rows <- dbGetQuery(dbconn, paste0('SELECT COUNT(*) FROM ', tblname))
+    if (num_rows == nrow(df)) success <- TRUE
   }
 }
 
