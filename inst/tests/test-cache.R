@@ -5,7 +5,7 @@ library(DBI)
 # Set up local database for now
 # https://github.com/hadley/dplyr/blob/master/vignettes/notes/postgres-setup.Rmd
 describe("cache function", {
-  dbconn <- db_connection("database.yml")
+  dbconn <- db_connection("database.yml", "cache")
 
   test_that('calling the cached function for the first time populated a new table', {  
     # First remove all tables in the local database.

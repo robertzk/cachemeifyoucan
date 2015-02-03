@@ -1,11 +1,13 @@
 expect_cached_batch_data <- function(expr) {
-  dbconn <- get("dbconn", envir = parent.frame())
+  db_conn <- get("db_conn", envir = parent.frame())
+  db_env <- get("db_env", envir = parent.frame())
   prefix <- get("prefix", envir = parent.frame())
   model_version <- get("model_version", envir = parent.frame())
   type <- get("type", envir = parent.frame())
   batch_data <- get("batch_data", envir = parent.frame())
+  dbconn <- db_connection(db_conn, db_env)
   lapply(dbListTables(dbconn), function(t) dbRemoveTable(dbconn, t))
-  cached_fcn <- cache(batch_data, key = "loan_id", "version", con = dbconn, prefix = prefix)
+  cached_fcn <- cache(batch_data, key = "loan_id", "version", con = db_conn, prefix = prefix, env = db_env)
   eval(substitute(expr), envir = environment())
   df_db <- db2df(dbReadTable(dbconn, cachemeifyoucan:::table_name(prefix, list(version = model_version))), dbconn, "loan_id")
   # Clumsy to check matching database
@@ -21,4 +23,5 @@ expect_cached_batch_data <- function(expr) {
   if (exists('df_cached', envir = environment(), inherits = FALSE)) {
     expect_equal(df_cached, df_ref)
   }
+  dbDisconnect(dbconn)
 }

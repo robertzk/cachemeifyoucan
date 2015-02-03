@@ -1,7 +1,8 @@
 context('batch data')
 library(DBI)
 
-dbconn <- db_connection("database.yml", env = "avant")
+db_conn <- "database.yml"
+db_env <- "avant"
 prefix <- "version"
 model_version <- "default/en-US/2.2.1"
 type <- "loan_id"
@@ -16,6 +17,4 @@ describe("batch data", {
       no_check <- TRUE
     })
   })
-
-  dbDisconnect(dbconn)
 })

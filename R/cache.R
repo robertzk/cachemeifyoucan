@@ -25,10 +25,14 @@
 #'   if \code{x} and \code{y} are only allowed to be \code{TRUE} or
 #'   \code{FALSE}, with potentially four different kinds of data.frame
 #'   outputs, then up to four tables would be created.
+#' @param con SQLConnection. Database connection object.
 #' @param prefix character. Database table prefix. A different prefix should
 #'   be used for each cached function so that there are no table collisions.
 #'   Optional, but highly recommended.
-#' @param con SQLConnection. Database connection object.
+#' @param force logical. If force is \code{TRUE}, force to write to the 
+#'   caching layer every time the function is called.
+#' @param env character. The environment of the database connection if con 
+#'   is a yaml cofiguration file.
 #' @return A function with a caching layer that does not call
 #'   \code{uncached_function} with already computed records, but retrieves
 #'   those results from an underlying database table.
@@ -174,12 +178,14 @@
 #'   grab_sql_table(table_name = table_name, year = yr, month = mth, dbname = dbname)
 #' }
 #' }
-cache <- function(uncached_function, key, salt, con, prefix, force = FALSE) {
+cache <- function(uncached_function, key, salt, con, prefix, force = FALSE, env) {
   stopifnot(is.function(uncached_function),
     is.character(prefix), length(prefix) == 1,
     is.character(key), length(key) > 0,
     is.atomic(salt) || is.list(salt),
     is.logical(force))
+
+  con <- build_connection(con, env)
 
   cached_function <- new("function")
 

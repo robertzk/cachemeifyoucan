@@ -299,11 +299,26 @@ db_connection <- function(database.yml, env = "cache",
   if (verbose) message("* Loading database connection...\n")
   database.yml <- paste(readLines(database.yml), collapse = "\n")
   config.database <- yaml::yaml.load(database.yml)
-  if (!env %in% names(config.database))
-    stop(pp("Unable to load database settings from database.yml ",
-            "for environment '#{env}'"))
-  config.database <- config.database[[env]]
+  if (!missing(env)) {
+    if (!env %in% names(config.database))
+      stop(pp("Unable to load database settings from database.yml ",
+              "for environment '#{env}'"))
+    config.database <- config.database[[env]]
+  }
   # Authorization arguments needed by the DBMS instance
   do.call(DBI::dbConnect, append(list(drv = dbDriver(config.database$adapter)), 
     config.database[!names(config.database) %in% "adapter"]))
+}
+
+build_connection <- function(con, env) {
+  if (is.character(con)) {
+    con <- db_connection(con, env)
+  } else if (is.function(con)) {
+    con <- con()
+  } else if (length(grep("SQLConnection", class(con)[1])) > 0) {
+    #print("Connection is already established")
+  } else { 
+    stop("Invalid connection setup")
+  }
+  con
 }
