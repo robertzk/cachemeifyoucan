@@ -205,7 +205,11 @@ build_cached_function <- function(cached_function) {
     # situations.
     raw_call <- match.call()
     call     <- as.list(raw_call[-1]) # Strip function name but retain arguments.
-     
+    
+    # Evaluate function call parameters in the calling environment
+    for (name in names(call))
+      call[[name]] <- eval.parent(call[[name]])
+
     # Only apply salt on provided values.
     true_salt <- call[intersect(names(call), salt)]
     
@@ -229,7 +233,7 @@ build_cached_function <- function(cached_function) {
 # A helper function to execute a cached function call.
 execute <- function(fcn_call) {
   # Grab the new/old keys
-  keys <- fcn_call$key_value
+  keys <- fcn_call$call[[fcn_call$key]]
   if (fcn_call$force)
     uncached_keys <- keys
   else
@@ -256,7 +260,7 @@ compute_cached_data <- function(fcn_call, cached_keys) {
 
 cached_function_call <- function(fn, call, context, table, key, con, force) {
   structure(list(fn = fn, call = call, context = context, table = table, key = key,
-                 key_value = eval(call[[key]], envir = context), con = con, force = force), 
+                 con = con, force = force), 
     class = 'cached_function_call')
 }
 
