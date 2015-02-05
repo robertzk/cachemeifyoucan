@@ -29,10 +29,10 @@
 #' @param prefix character. Database table prefix. A different prefix should
 #'   be used for each cached function so that there are no table collisions.
 #'   Optional, but highly recommended.
-#' @param force logical. If force is \code{TRUE}, force to write to the 
-#'   caching layer every time the function is called.
 #' @param env character. The environment of the database connection if con 
 #'   is a yaml cofiguration file.
+#' @param force logical. If force is \code{TRUE}, force to write to the 
+#'   caching layer every time the function is called.
 #' @return A function with a caching layer that does not call
 #'   \code{uncached_function} with already computed records, but retrieves
 #'   those results from an underlying database table.
@@ -178,7 +178,7 @@
 #'   grab_sql_table(table_name = table_name, year = yr, month = mth, dbname = dbname)
 #' }
 #' }
-cache <- function(uncached_function, key, salt, con, prefix, force = FALSE, env) {
+cache <- function(uncached_function, key, salt, con, prefix, env, force = FALSE) {
   stopifnot(is.function(uncached_function),
     is.character(prefix), length(prefix) == 1,
     is.character(key), length(key) > 0,
