@@ -1,4 +1,5 @@
-#' Remove the database caching layer to an arbitrary R function.
+#' Cache the database caching layer for an arbitrary R function to remove 
+#' the caching layer, paired with cache(...) function.
 #'
 #' @param uncached_function function. The function to cache.
 #' @param key character. A character vector of primary keys. The user
@@ -25,9 +26,9 @@
 #'   Optional, but highly recommended.
 #' @param env character. The environment of the database connection if con 
 #'   is a yaml cofiguration file.
-#' @return A function that removes underlying database table.
+#' @return A function that would remove underlying database table.
 #' @export
-uncache <- function(uncached_function, key, salt, con, prefix, env) {
+flush <- function(uncached_function, key, salt, con, prefix, env) {
   stopifnot(is.function(uncached_function),
     is.character(prefix), length(prefix) == 1,
     is.character(key), length(key) > 0,
@@ -43,7 +44,7 @@ uncache <- function(uncached_function, key, salt, con, prefix, env) {
   # Inject some values we will need in the body of the caching layer.
   environment(cached_function) <- 
     list2env(list(prefix = prefix, key = key, salt = salt,
-      uncached_function = uncached_function, con = con, force = force),
+      uncached_function = uncached_function, con = con),
       parent = environment(uncached_function))
 
   build_uncached_function(cached_function)

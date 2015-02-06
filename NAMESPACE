@@ -2,7 +2,7 @@
 
 export(cache)
 export(db_connection)
-export(uncache)
+export(flush)
 import(berdie)
 import(testthatsomemore)
 importFrom(DBI,dbExistsTable)
