@@ -310,6 +310,13 @@ db_connection <- function(database.yml, env = "cache",
     config.database[!names(config.database) %in% "adapter"]))
 }
 
+#' Helper function to build the connection.
+#'
+#' @param con connection. Could be characters of yaml file path with optional environment,
+#'   or a function passed by user to establish the connection, or a database connetion object.
+#' @param env character. What environment to use when `con` is a the yaml file path.
+#' @return the database connection.
+#' @export
 build_connection <- function(con, env) {
   if (is.character(con)) {
     con <- db_connection(con, env)
@@ -321,4 +328,15 @@ build_connection <- function(con, env) {
     stop("Invalid connection setup")
   }
   con
+}
+
+#' Helper function to check the database connection.
+#' 
+#' @param con SQLConnection.
+#' @return `TRUE` or `FALSE` indicating if the database connection is good.
+#' @export
+is_db_connected <- function(con) {
+  res <- tryCatch(fetch(dbSendQuery(con, "SELECT 1 + 1"))[1,1], error = function(e) NULL)
+  if(is.null(res) || res != 2) return(FALSE)
+  TRUE
 }
