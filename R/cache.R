@@ -233,6 +233,14 @@ build_cached_function <- function(cached_function) {
     # The database table to use is determined by the prefix and
     # what values of the salted parameters were used at calltime.
     tbl_name <- cachemeifyoucan:::table_name(prefix, true_salt)
+    # Check database connection and reconnect if necessary
+    if (!is_db_connected(con)) {
+      if (!is.null(raw_con)) {
+        con <<- build_connection(raw_con, env)$con
+      } else {
+        stop("Cannot re-establish database connection (caching layer)!")
+      }
+    }
     execute(
       cached_function_call(uncached_function, call, parent.frame(), tbl_name, key, con, force,
         raw_con, env)
@@ -244,14 +252,6 @@ build_cached_function <- function(cached_function) {
 
 # A helper function to execute a cached function call.
 execute <- function(fcn_call) {
-  # Check database connection and reconnect if necessary
-  if (!is_db_connected(fcn_call$con)) {
-    if (!is.null(fcn_call$raw_con)) {
-      fcn_call$con <- build_connection(fcn_call$raw_con, fcn_call$env)$con
-    } else {
-      stop("Cannot re-establish database connection (caching layer)!")
-    }
-  }
   # Grab the new/old keys
   keys <- fcn_call$call[[fcn_call$key]]
   if (fcn_call$force)
