@@ -13,7 +13,7 @@ or a function passed by user to establish the connection, or a database connetio
 \item{env}{character. What environment to use when `con` is a the yaml file path.}
 }
 \value{
-the database connection.
+a list of database connection and if it can be re-established.
 }
 \description{
 Helper function to build the connection.

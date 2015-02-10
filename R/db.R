@@ -299,7 +299,7 @@ db_connection <- function(database.yml, env = "cache",
   if (verbose) message("* Loading database connection...\n")
   database.yml <- paste(readLines(database.yml), collapse = "\n")
   config.database <- yaml::yaml.load(database.yml)
-  if (!missing(env)) {
+  if (!missing(env) && !is.null(env)) {
     if (!env %in% names(config.database))
       stop(pp("Unable to load database settings from database.yml ",
               "for environment '#{env}'"))
@@ -315,19 +315,21 @@ db_connection <- function(database.yml, env = "cache",
 #' @param con connection. Could be characters of yaml file path with optional environment,
 #'   or a function passed by user to establish the connection, or a database connetion object.
 #' @param env character. What environment to use when `con` is a the yaml file path.
-#' @return the database connection.
+#' @return a list of database connection and if it can be re-established.
 #' @export
 build_connection <- function(con, env) {
+  re <- TRUE
   if (is.character(con)) {
     con <- db_connection(con, env)
   } else if (is.function(con)) {
     con <- con()
   } else if (length(grep("SQLConnection", class(con)[1])) > 0) {
     #print("Connection is already established")
+    re <- FALSE
   } else { 
     stop("Invalid connection setup")
   }
-  con
+  list(con = con, re = re)
 }
 
 #' Helper function to check the database connection.

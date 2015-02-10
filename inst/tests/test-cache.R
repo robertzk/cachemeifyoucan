@@ -3,7 +3,7 @@ library(DBI)
 
 # Set up test fixture
 # Set up local database for now
-# https://github.com/hadley/dplyr/blob/master/vignettes/notes/postgres-setup.Rmd
+ https://github.com/hadley/dplyr/blob/master/vignettes/notes/postgres-setup.Rmd
 describe("cache function", {
   dbconn <- db_connection("database.yml", "cache")
 

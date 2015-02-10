@@ -185,7 +185,9 @@ cache <- function(uncached_function, key, salt, con, prefix, env, force = FALSE)
     is.atomic(salt) || is.list(salt),
     is.logical(force))
 
-  con <- build_connection(con, env)
+  connection_bundle <- build_connection(con, env)
+  dbconn <- connection_bundle$con
+  re <- connection_bundle$re
 
   cached_function <- new("function")
 
@@ -195,7 +197,10 @@ cache <- function(uncached_function, key, salt, con, prefix, env, force = FALSE)
   # Inject some values we will need in the body of the caching layer.
   environment(cached_function) <- 
     list2env(list(prefix = prefix, key = key, salt = salt,
-      uncached_function = uncached_function, con = con, force = force),
+      uncached_function = uncached_function, con = dbconn, force = force
+      , raw_con = switch(1 + re, NULL, con)
+      , env = switch(1 + missing(env), env, NULL)
+      ),
       parent = environment(uncached_function))
 
   build_cached_function(cached_function)
@@ -229,7 +234,8 @@ build_cached_function <- function(cached_function) {
     # what values of the salted parameters were used at calltime.
     tbl_name <- cachemeifyoucan:::table_name(prefix, true_salt)
     execute(
-      cached_function_call(uncached_function, call, parent.frame(), tbl_name, key, con, force)
+      cached_function_call(uncached_function, call, parent.frame(), tbl_name, key, con, force,
+        raw_con, env)
     )
   })
 
@@ -238,6 +244,14 @@ build_cached_function <- function(cached_function) {
 
 # A helper function to execute a cached function call.
 execute <- function(fcn_call) {
+  # Check database connection and reconnect if necessary
+  if (!is_db_connected(fcn_call$con)) {
+    if (!is.null(fcn_call$raw_con)) {
+      fcn_call$con <- build_connection(fcn_call$raw_con, fcn_call$env)$con
+    } else {
+      stop("Cannot re-establish database connection (caching layer)!")
+    }
+  }
   # Grab the new/old keys
   keys <- fcn_call$call[[fcn_call$key]]
   if (fcn_call$force)
@@ -264,9 +278,9 @@ compute_cached_data <- function(fcn_call, cached_keys) {
   error_fn(data_injector(fcn_call, cached_keys, TRUE))
 }
 
-cached_function_call <- function(fn, call, context, table, key, con, force) {
+cached_function_call <- function(fn, call, context, table, key, con, force, raw_con, env) {
   structure(list(fn = fn, call = call, context = context, table = table, key = key,
-                 con = con, force = force), 
+                 con = con, force = force, raw_con = raw_con, env = env), 
     class = 'cached_function_call')
 }
 
