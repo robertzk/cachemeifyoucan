@@ -196,10 +196,10 @@ cache <- function(uncached_function, key, salt, con, prefix, env, force = FALSE)
 
   # Inject some values we will need in the body of the caching layer.
   environment(cached_function) <- 
-    list2env(list(prefix = prefix, key = key, salt = salt,
-      uncached_function = uncached_function, con = dbconn, force = force
-      , raw_con = switch(1 + re, NULL, con)
-      , env = switch(1 + missing(env), env, NULL)
+    list2env(list(`_prefix` = prefix, `_key` = key, `_salt` = salt,
+      `_uncached_function` = uncached_function, `_con` = dbconn, `_force` = force
+      , `_raw_con` = switch(1 + re, NULL, con)
+      , `_env` = switch(1 + missing(env), env, NULL)
       ),
       parent = environment(uncached_function))
 
@@ -222,7 +222,7 @@ build_cached_function <- function(cached_function) {
       call[[name]] <- eval.parent(call[[name]])
 
     # Only apply salt on provided values.
-    true_salt <- call[intersect(names(call), salt)]
+    true_salt <- call[intersect(names(call), `_salt`)]
     
     # Since the values in `call` might be expressions, evaluate them
     # in the calling environment to get their actual values.
@@ -232,18 +232,18 @@ build_cached_function <- function(cached_function) {
 
     # The database table to use is determined by the prefix and
     # what values of the salted parameters were used at calltime.
-    tbl_name <- cachemeifyoucan:::table_name(prefix, true_salt)
+    tbl_name <- cachemeifyoucan:::table_name(`_prefix`, true_salt)
     # Check database connection and reconnect if necessary
-    if (!is_db_connected(con)) {
-      if (!is.null(raw_con)) {
-        con <<- build_connection(raw_con, env)$con
+    if (!is_db_connected(`_con`)) {
+      if (!is.null(`_raw_con`)) {
+        `_con` <<- build_connection(`_raw_con`, `_env`)$con
       } else {
         stop("Cannot re-establish database connection (caching layer)!")
       }
     }
-    execute(
-      cached_function_call(uncached_function, call, parent.frame(), tbl_name, key, con, force,
-        raw_con, env)
+    cachemeifyoucan:::execute(
+      cachemeifyoucan:::cached_function_call(`_uncached_function`, call,
+        parent.frame(), tbl_name, `_key`, `_con`, `_force`, `_raw_con`, `_env`)
     )
   })
 
@@ -257,17 +257,17 @@ execute <- function(fcn_call) {
   if (fcn_call$force)
     uncached_keys <- keys
   else
-    uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$key)
+    uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
   cached_keys <- setdiff(keys, uncached_keys)
 
   uncached_data <- compute_uncached_data(fcn_call, uncached_keys)
   cached_data   <- compute_cached_data(fcn_call, cached_keys)
 
   # Cache them
-  write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$key)
+  write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key)
 
   data <- plyr::rbind.fill(uncached_data, cached_data)
-  data[match(keys, data[[fcn_call$key]]), ] # Re-arrange back into expected order
+  data[match(keys, data[[fcn_call$output_key]]), ] # Re-arrange back into expected order
 }
 
 compute_uncached_data <- function(fcn_call, uncached_keys) {
@@ -279,8 +279,16 @@ compute_cached_data <- function(fcn_call, cached_keys) {
 }
 
 cached_function_call <- function(fn, call, context, table, key, con, force, raw_con, env) {
+  # TODO: (RK) Handle keys of length more than 1
+  if (is.null(names(key))) {
+    output_key <- key
+  } else {
+    output_key <- unname(key)
+    key <- names(key)
+  }
   structure(list(fn = fn, call = call, context = context, table = table, key = key,
-                 con = con, force = force, raw_con = raw_con, env = env), 
+                 output_key = output_key, con = con, force = force, raw_con = raw_con,
+                 env = env), 
     class = 'cached_function_call')
 }
 
@@ -301,9 +309,9 @@ data_injector_uncached <- function(fcn_call, keys) {
 
 data_injector_cached <- function(fcn_call, keys) {
   db2df(dbGetQuery(fcn_call$con,
-    paste("SELECT * FROM", fcn_call$table, "WHERE", fcn_call$key, "IN (",
+    paste("SELECT * FROM", fcn_call$table, "WHERE", fcn_call$output_key, "IN (",
     paste(keys, collapse = ', '), ")")), 
-    fcn_call$con, fcn_call$key)
+    fcn_call$con, fcn_call$output_key)
 }
 
 #' Stop on given errors and print corresponding error message.
