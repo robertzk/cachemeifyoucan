@@ -7,13 +7,17 @@
 #' have not been computed before.
 #'
 #' @param uncached_function function. The function to cache.
-#' @param key character. A character vector of primary keys. The user
+#' @param key character. A character vector of primary keys. 
+#'   If \code{key} is unnmaed, the useri 
 #'   guarantees that \code{uncached_function} has these as formal arguments
 #'   and that it returns a data.frame containing columns with at least those
 #'   names. For example, if we are caching a function that looks like
 #'   \code{function(author) { ... }}, we expect its output to be data.frames
 #'   containing an \code{"author"} column with one record for each author.
-#'   In this situation, \code{key = "author"}.
+#'   In this situation, \code{key = "author"}. Otherwise if \code{key} is 
+#'   a named length 1 vector, the name shall match the uncached_function key 
+#'   argument, the value shall be matched to at least one of the columns the 
+#'   returned data.frame contains.
 #' @param salt character. The names of the formal arguments of \code{uncached_function}
 #'   for which a unique value at calltime should use a different database
 #'   table. In other words, if \code{uncached_function} has arguments 
