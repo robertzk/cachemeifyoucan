@@ -9,9 +9,8 @@ cache(uncached_function, key, salt, con, prefix, env, force = FALSE)
 \arguments{
 \item{uncached_function}{function. The function to cache.}
 
-\item{key}{character. A character vector of primary keys.
-If \code{key} is unnmaed, the useri
-guarantees that \code{uncached_function} has these as formal arguments
+\item{key}{character. A character vector of primary keys. If \code{key} is unnamed,
+the user guarantees that \code{uncached_function} has these as formal arguments
 and that it returns a data.frame containing columns with at least those
 names. For example, if we are caching a function that looks like
 \code{function(author) { ... }}, we expect its output to be data.frames
