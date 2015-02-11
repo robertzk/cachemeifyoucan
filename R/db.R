@@ -245,7 +245,7 @@ build_insert_query <- function(tblname, df) {
 
   cols <- paste(colnames(df), collapse = ', ')
   values <- paste(apply(df, 1, paste, collapse = ', '), collapse = '), (')
-  Ramd::pp("INSERT INTO #{tblname} (#{cols}) VALUES (#{values})")
+  paste0("INSERT INTO ", tblname, " ", cols, ") VALUES (", values, ")")
 }
 
 #' setdiff current ids with those in the table of the database.
