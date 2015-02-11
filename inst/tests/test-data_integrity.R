@@ -1,7 +1,6 @@
 context('data integrity')
 
 describe("data integrity", {
-  dbconn <- db_connection("database.yml", "cache")
 
   test_that('it can expand a table if a new column pops up in later entries', {
     expect_cached({
@@ -15,5 +14,4 @@ describe("data integrity", {
     })
   })
 
-  dbDisconnect(dbconn)
 })
