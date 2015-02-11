@@ -12,7 +12,9 @@ Authors@R: c(person("Robert", "Krzyzanowski",
 Depends:
     R (>= 3.0.0)
 Imports:
-    berdie
+    berdie,
+    RPostgreSQL,
+    DBI
 Suggests:
     testthatsomemore,
     s3mpi,

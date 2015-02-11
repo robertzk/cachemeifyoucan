@@ -301,11 +301,14 @@ db_connection <- function(database.yml, env = "cache",
   config.database <- yaml::yaml.load(database.yml)
   if (!missing(env) && !is.null(env)) {
     if (!env %in% names(config.database))
-      stop(pp("Unable to load database settings from database.yml ",
-              "for environment '#{env}'"))
+      stop(paste0("Unable to load database settings from database.yml ",
+              "for environment '", env, "'"))
     config.database <- config.database[[env]]
+  } else if (missing(env) && length(config.database) == 1) {
+    config.database <- config.database[[1]]
   }
   # Authorization arguments needed by the DBMS instance
+  # TODO: (RK) Inform user if they forgot database.yml entries.
   do.call(DBI::dbConnect, append(list(drv = dbDriver(config.database$adapter)), 
     config.database[!names(config.database) %in% "adapter"]))
 }
