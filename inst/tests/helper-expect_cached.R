@@ -7,7 +7,7 @@ with_connection <- function(conn, expr) {
 expect_cached <- function(expr) {
   with_connection(dbconn(), {
     lapply(dbListTables(conn), function(t) dbRemoveTable(conn, t))
-    cached_fcn <- cache(batch_data, key = "id", c("model_version", "type"), con = conn, prefix = prefix)
+    cached_fcn <- cache(batch_data, key = c(key = "id"), c("model_version", "type"), con = conn, prefix = prefix)
     eval(substitute(expr), envir = environment())
     df_db <- db2df(dbReadTable(conn, cachemeifyoucan:::table_name(prefix, list(model_version = model_version, type = type))), conn, "id")
     if (!exists('no_check', envir = environment(), inherits = FALSE) ) {
