@@ -8,6 +8,7 @@ before_script:
 install:
 - "./travis-tool.sh install_deps"
 - "./travis-tool.sh install_r testthat"
+- "./travis-tool.sh install_r rJava"
 - "./travis-tool.sh install_github robertzk/berdie"
 script: "./travis-tool.sh run_tests"
 after_failure:
