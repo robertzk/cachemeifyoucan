@@ -321,18 +321,16 @@ db_connection <- function(database.yml, env = "cache",
 #' @return a list of database connection and if it can be re-established.
 #' @export
 build_connection <- function(con, env) {
-  re <- TRUE
   if (is.character(con)) {
-    con <- db_connection(con, env)
+    return(db_connection(con, env))
   } else if (is.function(con)) {
-    con <- con()
+    return(con())
   } else if (length(grep("SQLConnection", class(con)[1])) > 0) {
     #print("Connection is already established")
-    re <- FALSE
+    return(con)
   } else { 
     stop("Invalid connection setup")
   }
-  list(con = con, re = re)
 }
 
 #' Helper function to check the database connection.

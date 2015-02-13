@@ -235,7 +235,7 @@ build_cached_function <- function(cached_function) {
     # Check database connection and reconnect if necessary
     if (is.null(`_con`) || !cachemeifyoucan:::is_db_connected(`_con`)) {
       if (!is.null(`_con_build`[[1]])) {
-        `_con` <<- do.call(cachemeifyoucan:::build_connection, `_con_build`)$con
+        `_con` <<- do.call(cachemeifyoucan:::build_connection, `_con_build`)
       } else {
         stop("Cannot re-establish database connection (caching layer)!")
       }
