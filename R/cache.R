@@ -188,10 +188,6 @@ cache <- function(uncached_function, key, salt, con, prefix, env, force = FALSE)
     is.atomic(salt) || is.list(salt),
     is.logical(force))
 
-  connection_bundle <- build_connection(con, env)
-  dbconn <- connection_bundle$con
-  re <- connection_bundle$re
-
   cached_function <- new("function")
 
   # Retain the same formal arguments as the base function.
@@ -199,10 +195,10 @@ cache <- function(uncached_function, key, salt, con, prefix, env, force = FALSE)
 
   # Inject some values we will need in the body of the caching layer.
   environment(cached_function) <- 
-    list2env(list(`_prefix` = prefix, `_key` = key, `_salt` = salt,
-      `_uncached_function` = uncached_function, `_con` = dbconn, `_force` = force
-      , `_raw_con` = switch(1 + re, NULL, con)
-      , `_env` = switch(1 + missing(env), env, NULL)
+    list2env(list(`_prefix` = prefix, `_key` = key, `_salt` = salt
+      , `_uncached_function` = uncached_function, `_con` = NULL, `_force` = force
+      , `_con_build` = c(list(con), if (!missing(env)) list(env))
+      , `_env` = if (!missing(env)) env
       ),
       parent = environment(uncached_function))
 
@@ -237,16 +233,16 @@ build_cached_function <- function(cached_function) {
     # what values of the salted parameters were used at calltime.
     tbl_name <- cachemeifyoucan:::table_name(`_prefix`, true_salt)
     # Check database connection and reconnect if necessary
-    if (!is_db_connected(`_con`)) {
-      if (!is.null(`_raw_con`)) {
-        `_con` <<- build_connection(`_raw_con`, `_env`)$con
+    if (is.null(`_con`) || !cachemeifyoucan:::is_db_connected(`_con`)) {
+      if (!is.null(`_con_build`[[1]])) {
+        `_con` <<- do.call(cachemeifyoucan:::build_connection, `_con_build`)$con
       } else {
         stop("Cannot re-establish database connection (caching layer)!")
       }
     }
     cachemeifyoucan:::execute(
       cachemeifyoucan:::cached_function_call(`_uncached_function`, call,
-        parent.frame(), tbl_name, `_key`, `_con`, `_force`, `_raw_con`, `_env`)
+        parent.frame(), tbl_name, `_key`, `_con`, `_force`)
     )
   })
 
@@ -257,10 +253,10 @@ build_cached_function <- function(cached_function) {
 execute <- function(fcn_call) {
   # Grab the new/old keys
   keys <- fcn_call$call[[fcn_call$key]]
-  if (fcn_call$force)
-    uncached_keys <- keys
-  else
+  if (fcn_call$force) { uncached_keys <- keys }
+  else {
     uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+  }
   cached_keys <- setdiff(keys, uncached_keys)
 
   uncached_data <- compute_uncached_data(fcn_call, uncached_keys)
@@ -281,7 +277,7 @@ compute_cached_data <- function(fcn_call, cached_keys) {
   error_fn(data_injector(fcn_call, cached_keys, TRUE))
 }
 
-cached_function_call <- function(fn, call, context, table, key, con, force, raw_con, env) {
+cached_function_call <- function(fn, call, context, table, key, con, force) {
   # TODO: (RK) Handle keys of length more than 1
   if (is.null(names(key))) {
     output_key <- key
@@ -290,8 +286,7 @@ cached_function_call <- function(fn, call, context, table, key, con, force, raw_
     key <- names(key)
   }
   structure(list(fn = fn, call = call, context = context, table = table, key = key,
-                 output_key = output_key, con = con, force = force, raw_con = raw_con,
-                 env = env), 
+                 output_key = output_key, con = con, force = force), 
     class = 'cached_function_call')
 }
 

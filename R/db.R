@@ -345,3 +345,4 @@ is_db_connected <- function(con) {
   if(is.null(res) || res != 2) return(FALSE)
   TRUE
 }
+
