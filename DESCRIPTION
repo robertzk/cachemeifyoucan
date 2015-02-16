@@ -17,7 +17,8 @@ Imports:
     digest,
     DBI
 Suggests:
-    knitr
+    knitr,
+    testthatsomemore
 License: MIT
 LazyData: true
 Roxygen: list(wrap = FALSE)
