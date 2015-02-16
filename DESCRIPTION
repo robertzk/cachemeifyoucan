@@ -14,9 +14,9 @@ Depends:
 Imports:
     berdie,
     RPostgreSQL,
+    digest,
     DBI
 Suggests:
-    testthatsomemore,
     knitr
 License: MIT
 LazyData: true
