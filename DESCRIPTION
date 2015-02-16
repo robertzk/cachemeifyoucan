@@ -17,7 +17,6 @@ Imports:
     DBI
 Suggests:
     testthatsomemore,
-    s3mpi,
     knitr
 License: MIT
 LazyData: true
