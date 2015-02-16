@@ -10,7 +10,7 @@ before_script:
 - psql -c 'create database travis;' -U postgres
 install:
 - "./travis-tool.sh install_deps"
-- "R CMD javareconf"
+- "sudo R CMD javareconf"
 - "./travis-tool.sh install_r yaml RJDBC RPostgreSQL testthat knitr devtools"
 - "./travis-tool.sh install_github robertzk/testthatsomemore robertzk/berdie"
 script: "echo $JAVA_HOME" # ./travis-tool.sh run_tests"
