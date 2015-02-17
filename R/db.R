@@ -309,7 +309,7 @@ db_connection <- function(database.yml, env = "cache",
   }
   # Authorization arguments needed by the DBMS instance
   # TODO: (RK) Inform user if they forgot database.yml entries.
-  do.call(DBI::dbConnect, append(list(drv = dbDriver(config.database$adapter)), 
+  do.call(DBI::dbConnect, append(list(drv = DBI::dbDriver(config.database$adapter)), 
     config.database[!names(config.database) %in% "adapter"]))
 }
 
