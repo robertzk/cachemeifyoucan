@@ -306,10 +306,19 @@ data_injector_uncached <- function(fcn_call, keys) {
 }
 
 data_injector_cached <- function(fcn_call, keys) {
-  db2df(dbGetQuery(fcn_call$con,
-    paste("SELECT * FROM", fcn_call$table, "WHERE", fcn_call$output_key, "IN (",
-    paste(keys, collapse = ', '), ")")), 
-    fcn_call$con, fcn_call$output_key)
+
+  # list of keys converted to string
+  key_string <- if (is.numeric(keys)) {
+    paste(keys, collapse = ', ')
+  } else {
+    paste("'", paste(keys, collapse = "', '"), "'", sep='')
+  }
+  
+  # execute query
+  db2df(dbGetQuery(fcn_call$con, 
+    paste("SELECT * FROM", fcn_call$table, "WHERE", fcn_call$output_key, 
+    "IN (", key_string, ")")), fcn_call$con, fcn_call$output_key)
+
 }
 
 #' Stop on given errors and print corresponding error message.
