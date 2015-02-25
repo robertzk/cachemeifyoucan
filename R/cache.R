@@ -240,6 +240,7 @@ build_cached_function <- function(cached_function) {
         stop("Cannot re-establish database connection (caching layer)!")
       }
     }
+
     cachemeifyoucan:::execute(
       cachemeifyoucan:::cached_function_call(`_uncached_function`, call,
         parent.frame(), tbl_name, `_key`, `_con`, `_force`)

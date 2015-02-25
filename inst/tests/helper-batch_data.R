@@ -4,7 +4,7 @@ batch_data <- function(key, model_version = "model_test", type = "record_id",
   original <- Reduce(rbind, lapply(key, function(key) {
     seed <- as.integer(paste0("0x", substr(digest(paste(key, model_version, type)), 1, 6)))
     set.seed(seed)
-    data.frame(id = key, x = runif(1), y = rnorm(1))
+    data.frame(id = key, x = runif(1), y = rnorm(1), stringsAsFactors = FALSE)
   }))
   ret <- original
   if (switch) { ret$y <- NA }
