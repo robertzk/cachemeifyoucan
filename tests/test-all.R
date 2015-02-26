@@ -1,2 +1,3 @@
 library(testthat)
-test_package('cachemeifyoucan')
+library("cachemeifyoucan")
+test_check("cachemeifyoucan")
