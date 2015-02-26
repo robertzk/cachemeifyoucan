@@ -81,7 +81,7 @@ read_data <- function(dbconn, tblname, ids, key) {
 dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
   dbRemoveTable(dbconn, tblname)
   success <- FALSE
-  df[, vapply(df, pryr::compose(all, is.na), logical(1))] <- as.character(NA)
+  df[, vapply(df, function(x) all(is.na(x)), logical(1))] <- as.character(NA)
   while (!success) {
     dbWriteTable(dbconn, tblname, df, append = FALSE, row.names = 0)
     num_rows <- dbGetQuery(dbconn, paste0('SELECT COUNT(*) FROM ', tblname))
@@ -309,7 +309,7 @@ db_connection <- function(database.yml, env = "cache",
   }
   # Authorization arguments needed by the DBMS instance
   # TODO: (RK) Inform user if they forgot database.yml entries.
-  do.call(DBI::dbConnect, append(list(drv = dbDriver(config.database$adapter)), 
+  do.call(DBI::dbConnect, append(list(drv = DBI::dbDriver(config.database$adapter)), 
     config.database[!names(config.database) %in% "adapter"]))
 }
 
@@ -321,18 +321,16 @@ db_connection <- function(database.yml, env = "cache",
 #' @return a list of database connection and if it can be re-established.
 #' @export
 build_connection <- function(con, env) {
-  re <- TRUE
   if (is.character(con)) {
-    con <- db_connection(con, env)
+    return(db_connection(con, env))
   } else if (is.function(con)) {
-    con <- con()
+    return(con())
   } else if (length(grep("SQLConnection", class(con)[1])) > 0) {
     #print("Connection is already established")
-    re <- FALSE
+    return(con)
   } else { 
     stop("Invalid connection setup")
   }
-  list(con = con, re = re)
 }
 
 #' Helper function to check the database connection.
@@ -345,3 +343,4 @@ is_db_connected <- function(con) {
   if(is.null(res) || res != 2) return(FALSE)
   TRUE
 }
+

@@ -60,4 +60,12 @@ describe("cache function", {
     })
   })
 
+  test_that('non-numeric primary keys are supported', { 
+    expect_cached({
+      df_ref <- batch_data(letters[1:5])
+      cached_fcn(key = letters[1:5], model_version, type)
+      expect_equal(df_ref[1, ], cached_fcn(key = 'a', model_version, type))
+    })
+  })
+
 })

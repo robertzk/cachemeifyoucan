@@ -4,5 +4,5 @@
 #'
 #' @name cachemeifyoucan
 #' @docType package
-#' @import testthatsomemore berdie RPostgreSQL DBI
+#' @import berdie RPostgreSQL DBI digest plyr
 NULL

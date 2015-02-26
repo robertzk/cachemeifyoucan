@@ -14,11 +14,12 @@ Depends:
 Imports:
     berdie,
     RPostgreSQL,
-    DBI
+    digest,
+    DBI,
+    plyr
 Suggests:
-    testthatsomemore,
-    s3mpi,
-    knitr
+    knitr,
+    testthatsomemore
 License: MIT
 LazyData: true
 Roxygen: list(wrap = FALSE)
