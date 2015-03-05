@@ -3,7 +3,7 @@
 #' Requesting data from an API or performing queries can sometimes yield
 #' dataframe outputs that are easily cached according to some primary key.
 #' This function makes it possible to cache the output along the primary
-#' key, while only using the uncached function on those records that 
+#' key, while only using the uncached function on those records that
 #' have not been computed before.
 #'
 #' @param uncached_function function. The function to cache.
@@ -13,13 +13,13 @@
 #'   names. For example, if we are caching a function that looks like
 #'   \code{function(author) { ... }}, we expect its output to be data.frames
 #'   containing an \code{"author"} column with one record for each author.
-#'   In this situation, \code{key = "author"}. Otherwise if \code{key} is 
-#'   a named length 1 vector, the name shall match the uncached_function key 
-#'   argument, the value shall be matched to at least one of the columns the 
+#'   In this situation, \code{key = "author"}. Otherwise if \code{key} is
+#'   a named length 1 vector, the name shall match the uncached_function key
+#'   argument, the value shall be matched to at least one of the columns the
 #'   returned data.frame contains.
 #' @param salt character. The names of the formal arguments of \code{uncached_function}
 #'   for which a unique value at calltime should use a different database
-#'   table. In other words, if \code{uncached_function} has arguments 
+#'   table. In other words, if \code{uncached_function} has arguments
 #'   \code{id, x, y}, but different kinds of data.frames (i.e., ones with
 #'   different types and/or column names) will be returned depending
 #'   on the value of \code{x} or \code{y}, then we can set
@@ -32,9 +32,9 @@
 #' @param prefix character. Database table prefix. A different prefix should
 #'   be used for each cached function so that there are no table collisions.
 #'   Optional, but highly recommended.
-#' @param env character. The environment of the database connection if con 
+#' @param env character. The environment of the database connection if con
 #'   is a yaml cofiguration file.
-#' @param force logical. If force is \code{TRUE}, force to write to the 
+#' @param force logical. If force is \code{TRUE}, force to write to the
 #'   caching layer every time the function is called.
 #' @return A function with a caching layer that does not call
 #'   \code{uncached_function} with already computed records, but retrieves
@@ -44,11 +44,11 @@
 ## \dontrun{
 ## # These examples assume you have a database connection object
 ## # (as specified in the DBI package) in a local variable `con`.
-## 
+##
 ## # Imagine we have a function that returns a data.frame of information
 ## # about IMDB titles through their API. It takes an integer vector of
 ## # IDs and returns a data.frame with an "id" column, with one row for
-## # each title. (for example, 111161 would correspond to 
+## # each title. (for example, 111161 would correspond to
 ## # http://www.imdb.com/title/tt111161/ which is The Shawshank Redemption).
 ## amazon_info <- function(id) {
 ##   # Call external API.
@@ -56,7 +56,7 @@
 ##
 ## # Sending HTTP requests to Amazon and waiting for the response is
 ## # computationally intensive, so if we ask for some IDs that have
-## # already been computed in the past, it would be useful to not 
+## # already been computed in the past, it would be useful to not
 ## # make additional HTTP requests for those records. For example,
 ## # we may want to do some processing on all Amazon titles. However,
 ## # new records are created each day. Instead of parsing all
@@ -97,7 +97,7 @@
 ## }
 ##
 ## # If we wish to cache `amazon_info2`, we need to use different underlying
-## # database tables depending on the given `type`. One table may have 
+## # database tables depending on the given `type`. One table may have
 ## # columns like `num_actors` or `film_length` and the other may have
 ## # column such as `num_reviews` and `avg_rating`.
 ## cached_amazon_info2 <- cachemeifyoucan::cache(amazon_info2, key = 'id',
@@ -105,14 +105,14 @@
 ##
 ## # We have told the caching layer to use the `type` parameter as the "salt".
 ## # This means different values of `type` will use different underlying
-## # database tables for caching. It is up to the user to construct a 
+## # database tables for caching. It is up to the user to construct a
 ## # function like `amazon_info2` well so that it always returns a data.frame
 ## # with exactly the same column names if the `type` parameter is held fixed.
 ## # The salt should usually consist of a collection of parameters (typically
 ## # only one, `type` as in this example) that have a small number of possible
 ## # values; otherwise, many database tables would be created for different
 ## # values of the salt. Consider the following example.
-## 
+##
 ## bad_amazon_filmography <- function(id, actor_id) {
 ##   # Given a single actor_id and a vector of title IDs,
 ##   # return information about that actor's role in the film.
@@ -142,8 +142,8 @@
 ## # and there is no good way in general to determine whether two functions
 ## # are identical, it is up to the user to determine a good prefix for
 ## # their function (usually the function's name) so that it does not clash
-## # with other database tables. 
-## 
+## # with other database tables.
+##
 ## cached_amazon_info <- cachemeifyoucan::cache(amazon_info,
 ##   prefix = 'amazon_info', key = 'id', con = con)
 ## cached_review_amazon_info <- cachemeifyoucan::cache(review_amazon_info,
@@ -151,7 +151,7 @@
 ##
 ## # We will now use different database tables for these two functions.
 ##
-## ### 
+## ###
 ## # Advanced features
 ## ###
 ##
@@ -194,7 +194,7 @@ cache <- function(uncached_function, key, salt, con, prefix, env, force = FALSE)
   formals(cached_function) <- formals(uncached_function)
 
   # Inject some values we will need in the body of the caching layer.
-  environment(cached_function) <- 
+  environment(cached_function) <-
     list2env(list(`_prefix` = prefix, `_key` = key, `_salt` = salt
       , `_uncached_function` = uncached_function, `_con` = NULL, `_force` = force
       , `_con_build` = c(list(con), if (!missing(env)) list(env))
@@ -213,16 +213,17 @@ build_cached_function <- function(cached_function) {
     #   fn(1:2), fn(x = 1:2), fn(y = 5, 1:2), fn(y = 5, x = 1:2)
     # then `call` will be a list with names "x" and "y" in all
     # situations.
+
     raw_call <- match.call()
     call     <- as.list(raw_call[-1]) # Strip function name but retain arguments.
-    
+
     # Evaluate function call parameters in the calling environment
     for (name in names(call))
       call[[name]] <- eval.parent(call[[name]])
 
     # Only apply salt on provided values.
     true_salt <- call[intersect(names(call), `_salt`)]
-    
+
     # Since the values in `call` might be expressions, evaluate them
     # in the calling environment to get their actual values.
     for (name in names(true_salt)) {
@@ -232,6 +233,7 @@ build_cached_function <- function(cached_function) {
     # The database table to use is determined by the prefix and
     # what values of the salted parameters were used at calltime.
     tbl_name <- cachemeifyoucan:::table_name(`_prefix`, true_salt)
+
     # Check database connection and reconnect if necessary
     if (is.null(`_con`) || !cachemeifyoucan:::is_db_connected(`_con`)) {
       if (!is.null(`_con_build`[[1]])) {
@@ -267,7 +269,15 @@ execute <- function(fcn_call) {
   write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key)
 
   data <- plyr::rbind.fill(uncached_data, cached_data)
-  data[match(keys, data[[fcn_call$output_key]]), ] # Re-arrange back into expected order
+  ## This seems to cause a bug.
+  ## Have to sort to conform with order of keys.
+  out <- data[order(match(data[[fcn_call$output_key]], keys), na.last = NA),]
+  out
+}
+
+match_all <- function(keys, df, column_name) {
+  m <- match(keys, df[[column_name]])
+  df(order(m))
 }
 
 compute_uncached_data <- function(fcn_call, uncached_keys) {
@@ -287,7 +297,7 @@ cached_function_call <- function(fn, call, context, table, key, con, force) {
     key <- names(key)
   }
   structure(list(fn = fn, call = call, context = context, table = table, key = key,
-                 output_key = output_key, con = con, force = force), 
+                 output_key = output_key, con = con, force = force),
     class = 'cached_function_call')
 }
 
@@ -307,10 +317,10 @@ data_injector_uncached <- function(fcn_call, keys) {
 }
 
 data_injector_cached <- function(fcn_call, keys) {
-  db2df(dbGetQuery(fcn_call$con,
-    paste("SELECT * FROM", fcn_call$table, "WHERE", fcn_call$output_key, "IN (",
-    paste(sanitize_sql(keys), collapse = ', '), ")")), 
-    fcn_call$con, fcn_call$output_key)
+  sql <- paste("SELECT * FROM", fcn_call$table, "WHERE", fcn_call$output_key, "IN (",
+               paste(sanitize_sql(keys), collapse = ', '), ")")
+  db2df(dbGetQuery(fcn_call$con, sql),
+        fcn_call$con, fcn_call$output_key)
 }
 
 sanitize_sql <- function(x) { UseMethod("sanitize_sql") }

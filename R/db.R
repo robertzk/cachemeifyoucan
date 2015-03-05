@@ -1,5 +1,5 @@
 #' Database table name for a given prefix and salt.
-#' 
+#'
 #' @name table_name
 #' @param prefix character. Prefix.
 #' @param salt list. Salt for the table name.
@@ -7,7 +7,7 @@
 #' @return the table name. This will just be \code{"prefix_"}
 #'   appended with the MD5 hash of the digest of the \code{salt}.
 table_name <- function(prefix, salt) {
-  paste0(prefix, "_", digest::digest(salt))
+  tolower(paste0(prefix, "_", digest::digest(salt)))
 }
 
 #' Fetch the map of column names.
@@ -94,7 +94,7 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
 #' This function will be mindful of two problems: non-existent columns
 #' and long column names.
 #'
-#' Since this is meant to be used as a helper function for caching 
+#' Since this is meant to be used as a helper function for caching
 #' data, we must take a few precautions. If certain variables are not
 #' available for older data but are introduced for newer data, we
 #' must be careful to create those columns first.
@@ -123,7 +123,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     if (length(id_cols) == 0)
       stop("The data you are writing to the database must contain at least one ",
            "column ending with '_id'")
-  } else 
+  } else
     id_cols <- key
 
   write_column_names_map <- function(raw_names) {
@@ -133,7 +133,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
 
     # If we don't do this, we will get really weird bugs with numeric things stored as character
     # For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
-    old_options <- options(scipen = 20, digits = 20) 
+    old_options <- options(scipen = 20, digits = 20)
     on.exit(options(old_options))
 
     # Store the map of raw to MD5'ed column names in the column_names table.
@@ -170,7 +170,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
 
     # If we don't do this, we will get really weird bugs with numeric things stored as character
     # For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
-    old_options <- options(scipen = 20, digits = 20) 
+    old_options <- options(scipen = 20, digits = 20)
     on.exit(options(old_options))
 
     for (slice in slices) {
@@ -179,12 +179,12 @@ write_data_safely <- function(dbconn, tblname, df, key) {
         dbWriteTableUntilSuccess(dbconn, tblname, df)
         append <- TRUE
       } else {
-        RPostgreSQL::postgresqlpqExec(dbconn, 
+        RPostgreSQL::postgresqlpqExec(dbconn,
           build_insert_query(tblname, df[slice, , drop = FALSE]))
     }}
   }
 
-  if (!dbExistsTable(dbconn, tblname)) 
+  if (!dbExistsTable(dbconn, tblname))
     return(write_column_hashed_data(df, append = FALSE))
 
   one_row <- dbGetQuery(dbconn, paste("SELECT * FROM ", tblname, " LIMIT 1"))
@@ -219,7 +219,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
   if (sum(missing_cols) > 0) {
     raw_names <- translate_column_names(colnames(one_row)[missing_cols], dbconn)
     stopifnot(is.character(raw_names))
-    df[, raw_names] <- lapply(sapply(one_row[, missing_cols], class), as, object = NA) 
+    df[, raw_names] <- lapply(sapply(one_row[, missing_cols], class), as, object = NA)
   }
 
   write_column_hashed_data(df)
@@ -309,7 +309,7 @@ db_connection <- function(database.yml, env = "cache",
   }
   # Authorization arguments needed by the DBMS instance
   # TODO: (RK) Inform user if they forgot database.yml entries.
-  do.call(DBI::dbConnect, append(list(drv = DBI::dbDriver(config.database$adapter)), 
+  do.call(DBI::dbConnect, append(list(drv = DBI::dbDriver(config.database$adapter)),
     config.database[!names(config.database) %in% "adapter"]))
 }
 
@@ -328,13 +328,13 @@ build_connection <- function(con, env) {
   } else if (length(grep("SQLConnection", class(con)[1])) > 0) {
     #print("Connection is already established")
     return(con)
-  } else { 
+  } else {
     stop("Invalid connection setup")
   }
 }
 
 #' Helper function to check the database connection.
-#' 
+#'
 #' @param con SQLConnection.
 #' @return `TRUE` or `FALSE` indicating if the database connection is good.
 #' @export
@@ -343,4 +343,3 @@ is_db_connected <- function(con) {
   if(is.null(res) || res != 2) return(FALSE)
   TRUE
 }
-
