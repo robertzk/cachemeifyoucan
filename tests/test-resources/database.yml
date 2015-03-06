@@ -1,5 +1,0 @@
-test.local:
-    adapter: PostgreSQL
-    dbname: test
-    user: postgres
-    password: ''
