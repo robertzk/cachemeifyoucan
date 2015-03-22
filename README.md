@@ -34,7 +34,7 @@ To install the latest development builds directly from GitHub, run this instead:
 
 ```R
 if (!require("devtools")) install.packages("devtools")
-devtools::install_github("robertzk", "cachemeifyoucan")
+devtools::install_github("robertzk/cachemeifyoucan")
 ```
 
 When using the database caching features, you will need to setup a 
