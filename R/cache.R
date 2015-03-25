@@ -260,7 +260,7 @@ build_cached_function <- function(cached_function) {
     )
   })
 
-  class(cached_function) <- append(class(cached_function), "cached_function")
+  class(cached_function) <- append("cached_function", class(cached_function))
   cached_function
 }
 
