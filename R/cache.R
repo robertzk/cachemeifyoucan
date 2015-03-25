@@ -209,6 +209,7 @@ cache <- function(uncached_function, key, salt, con, prefix, env, force = FALSE)
 #'
 #' If applied to a regular function it returns this function
 #'
+#' @param fn function. The function that you want to uncache.
 #' @export
 uncached <- function(fn) {
   stopifnot(is.function(fn))
