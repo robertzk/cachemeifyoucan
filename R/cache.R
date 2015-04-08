@@ -207,14 +207,20 @@ cache <- function(uncached_function, key, salt, con, prefix, env, force = FALSE)
 
 #' Fetch the uncached function
 #'
-#' If applied to a regular function it returns this function
+#' Calling the result will force the function to overwrite cache, but not read
+#' from it.
+#'
+#' If applied to a regular function it returns this function.
 #'
 #' @param fn function. The function that you want to uncache.
 #' @export
 uncached <- function(fn) {
   stopifnot(is.function(fn))
   if (is(fn, "cached_function")) {
-    environment(fn)$`_uncached_function`
+    f <- environment(fn)$`_uncached_function`
+    cache(f, key = environment(fn)$`_key`, salt = environment(fn)$`_salt`,
+             prefix = environment(fn)$`_prefix`, con = environment(fn)$`_con`,
+             force = TRUE)
   } else fn
 }
 
@@ -227,7 +233,7 @@ build_cached_function <- function(cached_function) {
     # then `call` will be a list with names "x" and "y" in all
     # situations.
     raw_call <- match.call()
-    call     <- as.list(raw_call[-1]) # Strip function name but retain arguments.
+    call <- as.list(raw_call[-1]) # Strip function name but retain arguments.
 
     # Evaluate function call parameters in the calling environment
     for (name in names(call))
@@ -268,7 +274,7 @@ build_cached_function <- function(cached_function) {
 execute <- function(fcn_call) {
   # Grab the new/old keys
   keys <- fcn_call$call[[fcn_call$key]]
-  if (fcn_call$force) { uncached_keys <- keys }
+  if (isTRUE(fcn_call$force)) { uncached_keys <- keys }
   else {
     uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
   }
