@@ -226,6 +226,7 @@ build_cached_function <- function(cached_function) {
     #   fn(1:2), fn(x = 1:2), fn(y = 5, 1:2), fn(y = 5, x = 1:2)
     # then `call` will be a list with names "x" and "y" in all
     # situations.
+
     raw_call <- match.call()
     call     <- as.list(raw_call[-1]) # Strip function name but retain arguments.
 
@@ -245,6 +246,7 @@ build_cached_function <- function(cached_function) {
     # The database table to use is determined by the prefix and
     # what values of the salted parameters were used at calltime.
     tbl_name <- cachemeifyoucan:::table_name(`_prefix`, true_salt)
+
     # Check database connection and reconnect if necessary
     if (is.null(`_con`) || !cachemeifyoucan:::is_db_connected(`_con`)) {
       if (!is.null(`_con_build`[[1]])) {
@@ -281,7 +283,15 @@ execute <- function(fcn_call) {
   try(write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key))
 
   data <- plyr::rbind.fill(uncached_data, cached_data)
-  data[match(keys, data[[fcn_call$output_key]]), ] # Re-arrange back into expected order
+  ## This seems to cause a bug.
+  ## Have to sort to conform with order of keys.
+  out <- data[order(match(data[[fcn_call$output_key]], keys), na.last = NA),]
+  out
+}
+
+match_all <- function(keys, df, column_name) {
+  m <- match(keys, df[[column_name]])
+  df(order(m))
 }
 
 compute_uncached_data <- function(fcn_call, uncached_keys) {
@@ -321,10 +331,10 @@ data_injector_uncached <- function(fcn_call, keys) {
 }
 
 data_injector_cached <- function(fcn_call, keys) {
-  db2df(dbGetQuery(fcn_call$con,
-    paste("SELECT * FROM", fcn_call$table, "WHERE", fcn_call$output_key, "IN (",
-    paste(sanitize_sql(keys), collapse = ', '), ")")),
-    fcn_call$con, fcn_call$output_key)
+  sql <- paste("SELECT * FROM", fcn_call$table, "WHERE", fcn_call$output_key, "IN (",
+               paste(sanitize_sql(keys), collapse = ', '), ")")
+  db2df(dbGetQuery(fcn_call$con, sql),
+        fcn_call$con, fcn_call$output_key)
 }
 
 sanitize_sql <- function(x) { UseMethod("sanitize_sql") }
