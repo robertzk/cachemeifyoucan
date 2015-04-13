@@ -205,6 +205,19 @@ cache <- function(uncached_function, key, salt, con, prefix, env, force = FALSE)
   build_cached_function(cached_function)
 }
 
+#' Fetch the uncached function
+#'
+#' If applied to a regular function it returns this function
+#'
+#' @param fn function. The function that you want to uncache.
+#' @export
+uncached <- function(fn) {
+  stopifnot(is.function(fn))
+  if (is(fn, "cached_function")) {
+    environment(fn)$`_uncached_function`
+  } else fn
+}
+
 build_cached_function <- function(cached_function) {
   # All cached functions will have the same body.
   body(cached_function) <- quote({
@@ -249,6 +262,7 @@ build_cached_function <- function(cached_function) {
     )
   })
 
+  class(cached_function) <- append("cached_function", class(cached_function))
   cached_function
 }
 
@@ -266,7 +280,7 @@ execute <- function(fcn_call) {
   cached_data   <- compute_cached_data(fcn_call, cached_keys)
 
   # Cache them
-  write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key)
+  try(write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key))
 
   data <- plyr::rbind.fill(uncached_data, cached_data)
   ## This seems to cause a bug.
