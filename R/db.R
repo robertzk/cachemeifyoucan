@@ -16,7 +16,7 @@ table_name <- function(prefix, salt) {
 #' @param dbconn SQLConnection. A database connection.
 #' @importFrom DBI dbGetQuery
 column_names_map <- function(dbconn) {
-  dbGetQuery(dbconn, 'SELECT * FROM column_names')
+  DBI::dbGetQuery(dbconn, 'SELECT * FROM column_names')
 }
 
 #' MD5 digest of column names.
@@ -79,12 +79,12 @@ read_data <- function(dbconn, tblname, ids, key) {
 #' @importFrom DBI dbGetQuery
 #' @importFrom DBI dbRemoveTable
 dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
-  dbRemoveTable(dbconn, tblname)
+  DBI::dbRemoveTable(dbconn, tblname)
   success <- FALSE
   df[, vapply(df, function(x) all(is.na(x)), logical(1))] <- as.character(NA)
   while (!success) {
-    dbWriteTable(dbconn, tblname, df, append = FALSE, row.names = 0)
-    num_rows <- dbGetQuery(dbconn, paste0('SELECT COUNT(*) FROM ', tblname))
+    DBI::dbWriteTable(dbconn, tblname, df, append = FALSE, row.names = 0)
+    num_rows <- DBI::dbGetQuery(dbconn, paste0('SELECT COUNT(*) FROM ', tblname))
     if (num_rows == nrow(df)) success <- TRUE
   }
 }
@@ -137,14 +137,15 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     on.exit(options(old_options))
 
     # Store the map of raw to MD5'ed column names in the column_names table.
-    if (!dbExistsTable(dbconn, 'column_names'))
+    if (!DBI::dbExistsTable(dbconn, 'column_names'))
       #dbWriteTable(dbconn, 'column_names', column_map, row.names = 0)
       dbWriteTableUntilSuccess(dbconn, 'column_names', column_map)
     else {
-      raw_names <- dbGetQuery(dbconn, 'SELECT raw_name FROM column_names')[[1]]
+      raw_names <- DBI::dbGetQuery(dbconn, 'SELECT raw_name FROM column_names')[[1]]
       column_map <- column_map[!is.element(column_map$raw_name, raw_names), ]
-      if (NROW(column_map) > 0)
+      if (NROW(column_map) > 0) {
         dbWriteTable(dbconn, 'column_names', column_map, append = TRUE, row.names = 0)
+      }
     }
     TRUE
   }
@@ -179,15 +180,19 @@ write_data_safely <- function(dbconn, tblname, df, key) {
         dbWriteTableUntilSuccess(dbconn, tblname, df)
         append <- TRUE
       } else {
-        RPostgreSQL::postgresqlpqExec(dbconn,
-          build_insert_query(tblname, df[slice, , drop = FALSE]))
+        insert_query <- build_insert_query(tblname, df[slice, , drop = FALSE])
+        if (is(dbconn, "MonetDBConnection")) {
+          DBI::dbSendQuery(dbconn, insert_query)
+        } else {
+          RPostgreSQL::postgresqlpqExec(dbconn, insert_query)
+        }
     }}
   }
 
-  if (!dbExistsTable(dbconn, tblname))
+  if (!DBI::dbExistsTable(dbconn, tblname))
     return(write_column_hashed_data(df, append = FALSE))
 
-  one_row <- dbGetQuery(dbconn, paste("SELECT * FROM ", tblname, " LIMIT 1"))
+  one_row <- DBI::dbGetQuery(dbconn, paste("SELECT * FROM ", tblname, " LIMIT 1"))
   if (nrow(one_row) == 0) {
     dbRemoveTable(dbconn, tblname)
     return(write_column_hashed_data(df, append = FALSE))
@@ -211,7 +216,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     if (index > length(df)) index <- col
     sql <- paste0("ALTER TABLE ", tblname, " ADD COLUMN ",
                      col, " ", class_map[[class(df[[index]])[1]]])
-    suppressWarnings(dbGetQuery(dbconn, sql))
+    suppressWarnings(DBI::dbGetQuery(dbconn, sql))
   }
 
   # Columns that are missing in data need to be set to NA
@@ -339,7 +344,7 @@ build_connection <- function(con, env) {
 #' @return `TRUE` or `FALSE` indicating if the database connection is good.
 #' @export
 is_db_connected <- function(con) {
-  res <- tryCatch(fetch(dbSendQuery(con, "SELECT 1 + 1"))[1,1], error = function(e) NULL)
+  res <- tryCatch(fetch(DBI::dbSendQuery(con, "SELECT 1 + 1"))[1,1], error = function(e) NULL)
   if(is.null(res) || res != 2) return(FALSE)
   TRUE
 }
