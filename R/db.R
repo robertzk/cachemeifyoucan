@@ -159,8 +159,8 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     df[, id_cols] <- df[, id_cols_ix]
 
     # Convert some types to character so they go in the DB properly.
-    to_chars <- vapply(df, function(x) is.factor(x) || is.ordered(x) || is.logical(x), logical(1))
-    df[, to_chars] <- lapply(df[, to_chars], as.character)
+    to_chars <- unname(vapply(df, function(x) is.factor(x) || is.ordered(x) || is.logical(x), logical(1)))
+    df[, to_chars] <- sapply(df[, to_chars], as.character, USE.NAMES = FALSE)
 
     # dbWriteTable(dbconn, tblname, df, row.names = 0, append = TRUE)
     # Believe it or not, the above does not work! RPostgreSQL seems to have a
