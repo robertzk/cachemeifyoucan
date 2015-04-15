@@ -191,10 +191,11 @@ cache <- function(uncached_function, key, salt, con, prefix, env) {
   formals(cached_function) <- formals(uncached_function)
 
   # Check "force." name collision
-  if ("force." %in% names(formals(cached_funcation))) {
-    stop('"force." is a reserved argument in caching layer, 
-      collision with the to-be-cached function', call. = FALSE)
+  if ("force." %in% names(formals(cached_function))) {
+    stop(sQuote("force."), " is a reserved argument in caching layer, ",
+         "collision with formals in the cached function.", call. = FALSE)
   }
+
   # Default force. argument to be FALSE
   formals(cached_function)$force. <- FALSE
 
