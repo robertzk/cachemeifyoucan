@@ -190,6 +190,14 @@ cache <- function(uncached_function, key, salt, con, prefix, env) {
   # Retain the same formal arguments as the base function.
   formals(cached_function) <- formals(uncached_function)
 
+  # Check "force." name collision
+  if ("force." %in% names(formals(cached_funcation))) {
+    stop('"force." is a reserved argument in caching layer, 
+      collision with the to-be-cached function', call. = FALSE)
+  }
+  # Default force. argument to be FALSE
+  formals(cached_function)$force. <- FALSE
+
   # Inject some values we will need in the body of the caching layer.
   environment(cached_function) <-
     list2env(list(`_prefix` = prefix, `_key` = key, `_salt` = salt
@@ -253,12 +261,11 @@ build_cached_function <- function(cached_function) {
       }
     }
 
-    # argument 'force' may have a conflict with the to-be-cached function.
-    `_force` <<- if ("force" %in% names(call)) call[["force"]] else FALSE
+    if ("force." %in% names(call)) force. <- call[["force."]]
 
     cachemeifyoucan:::execute(
       cachemeifyoucan:::cached_function_call(`_uncached_function`, call,
-        parent.frame(), tbl_name, `_key`, `_con`, `_force`)
+        parent.frame(), tbl_name, `_key`, `_con`, force.)
     )
   })
 
