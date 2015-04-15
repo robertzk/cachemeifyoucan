@@ -34,8 +34,6 @@
 #'   Optional, but highly recommended.
 #' @param env character. The environment of the database connection if con
 #'   is a yaml cofiguration file.
-#' @param force logical. If force is \code{TRUE}, force to write to the
-#'   caching layer every time the function is called.
 #' @return A function with a caching layer that does not call
 #'   \code{uncached_function} with already computed records, but retrieves
 #'   those results from an underlying database table.
@@ -181,12 +179,11 @@
 ##   grab_sql_table(table_name = table_name, year = yr, month = mth, dbname = dbname)
 ## }
 ## }
-cache <- function(uncached_function, key, salt, con, prefix, env, force = FALSE) {
+cache <- function(uncached_function, key, salt, con, prefix, env) {
   stopifnot(is.function(uncached_function),
     is.character(prefix), length(prefix) == 1,
     is.character(key), length(key) > 0,
-    is.atomic(salt) || is.list(salt),
-    is.logical(force))
+    is.atomic(salt) || is.list(salt))
 
   cached_function <- new("function")
 
@@ -196,7 +193,7 @@ cache <- function(uncached_function, key, salt, con, prefix, env, force = FALSE)
   # Inject some values we will need in the body of the caching layer.
   environment(cached_function) <-
     list2env(list(`_prefix` = prefix, `_key` = key, `_salt` = salt
-      , `_uncached_function` = uncached_function, `_con` = NULL, `_force` = force
+      , `_uncached_function` = uncached_function, `_con` = NULL
       , `_con_build` = c(list(con), if (!missing(env)) list(env))
       , `_env` = if (!missing(env)) env
       ),
@@ -256,6 +253,9 @@ build_cached_function <- function(cached_function) {
       }
     }
 
+    # argument 'force' may have a conflict with the to-be-cached function.
+    `_force` <<- if ("force" %in% names(call)) call[["force"]] else FALSE
+
     cachemeifyoucan:::execute(
       cachemeifyoucan:::cached_function_call(`_uncached_function`, call,
         parent.frame(), tbl_name, `_key`, `_con`, `_force`)
@@ -270,11 +270,14 @@ build_cached_function <- function(cached_function) {
 execute <- function(fcn_call) {
   # Grab the new/old keys
   keys <- fcn_call$call[[fcn_call$key]]
-  if (fcn_call$force) { uncached_keys <- keys }
-  else {
+  if (fcn_call$force) 
+  { 
+    uncached_keys <- keys 
+  } else {
     uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
   }
   cached_keys <- setdiff(keys, uncached_keys)
+  stopifnot(remove_old_key(fcn_call$con, fcn_call$table, uncached_keys, fcn_call$output_key))
 
   uncached_data <- compute_uncached_data(fcn_call, uncached_keys)
   cached_data   <- compute_cached_data(fcn_call, cached_keys)
