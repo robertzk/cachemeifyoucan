@@ -281,13 +281,13 @@ get_new_key <- function(dbconn, tbl_name, ids, key) {
 #' @importFrom DBI dbExistsTable
 #' @importFrom DBI dbSendQuery
 remove_old_key <- function(dbconn, tbl_name, ids, key) {
-  if (length(ids) == 0) return(TRUE)
-  if (!DBI::dbExistsTable(dbconn, tbl_name)) return(FALSE)
+  if (length(ids) == 0) return(NULL)
+  if (!DBI::dbExistsTable(dbconn, tbl_name)) return(NULL)
   id_column_name <- get_hashed_names(key)
   DBI::dbSendQuery(dbconn, paste0(
     "DELETE FROM ", tbl_name, " WHERE ", id_column_name, " IN (",
     paste(ids, collapse = ","), ")"))
-  TRUE
+  invisible(NULL)
 }
 
 #' Obtain a connection to a database.
