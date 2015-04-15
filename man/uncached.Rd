@@ -6,6 +6,9 @@
 \usage{
 uncached(fn)
 }
+\arguments{
+\item{fn}{function. The function that you want to uncache.}
+}
 \description{
 If applied to a regular function it returns this function
 }

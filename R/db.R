@@ -271,6 +271,25 @@ get_new_key <- function(dbconn, tbl_name, ids, key) {
   setdiff(ids, present_ids)
 }
 
+#' remove old keys to maintain uniqueness of "id" for the sake of force pushing
+#'
+#' @name remove_old_key
+#' @param dbconn SQLConnection. The database connection.
+#' @param tbl_name character. Database table name.
+#' @param ids vector. A vector of ids.
+#' @param key character. Identifier of database table.
+#' @importFrom DBI dbExistsTable
+#' @importFrom DBI dbSendQuery
+remove_old_key <- function(dbconn, tbl_name, ids, key) {
+  if (length(ids) == 0) return(NULL)
+  if (!DBI::dbExistsTable(dbconn, tbl_name)) return(NULL)
+  id_column_name <- get_hashed_names(key)
+  DBI::dbSendQuery(dbconn, paste0(
+    "DELETE FROM ", tbl_name, " WHERE ", id_column_name, " IN (",
+    paste(ids, collapse = ","), ")"))
+  invisible(NULL)
+}
+
 #' Obtain a connection to a database.
 #'
 #' By default, this function will read from the `cache` environment.

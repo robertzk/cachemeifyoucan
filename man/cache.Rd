@@ -4,7 +4,7 @@
 \alias{cache}
 \title{Apply a database caching layer to an arbitrary R function.}
 \usage{
-cache(uncached_function, key, salt, con, prefix, env, force = FALSE)
+cache(uncached_function, key, salt, con, prefix, env)
 }
 \arguments{
 \item{uncached_function}{function. The function to cache.}
@@ -40,9 +40,6 @@ Optional, but highly recommended.}
 
 \item{env}{character. The environment of the database connection if con
 is a yaml cofiguration file.}
-
-\item{force}{logical. If force is \code{TRUE}, force to write to the
-caching layer every time the function is called.}
 }
 \value{
 A function with a caching layer that does not call
