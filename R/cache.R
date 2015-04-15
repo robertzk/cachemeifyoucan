@@ -153,10 +153,14 @@
 ## # force.
 ## ###
 ##
-## # `force.` is a reserved argument for the to-be-cached function, if 
-## # it is specified to be `TRUE`, the caching layer will force to 
-## # repopulate the database tables for given ids. The default value
+## # `force.` is a reserved argument for the to-be-cached function. If 
+## # it is specified to be `TRUE`, the caching layer will forcibly
+## # repopulate the database tables for the given ids. The default value
 ## # is `FALSE`.
+##
+## cached_amazon_info <- cachemeifyoucan::cache(amazon_info,
+##   prefix = 'amazon_info', key = 'id', con = con)
+## cached_amazon_info(c(10, 20), force. = TRUE) # Will forcibly repopulate.
 ##
 ## ###
 ## # Advanced features
