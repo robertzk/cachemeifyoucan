@@ -150,6 +150,15 @@
 ## # We will now use different database tables for these two functions.
 ##
 ## ###
+## # force.
+## ###
+##
+## # `force.` is a reserved argument for the to-be-cached function, if 
+## # it is specified to be `TRUE`, the caching layer will force to 
+## # repopulate the database tables for given ids. The default value
+## # is `FALSE`.
+##
+## ###
 ## # Advanced features
 ## ###
 ##
