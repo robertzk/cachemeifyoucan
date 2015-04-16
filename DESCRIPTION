@@ -19,7 +19,8 @@ Imports:
     plyr
 Suggests:
     knitr,
-    testthatsomemore
+    testthatsomemore,
+    batchman (>= 0.3.2)
 License: MIT
 LazyData: true
 Roxygen: list(wrap = FALSE)
