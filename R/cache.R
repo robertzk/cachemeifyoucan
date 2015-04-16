@@ -260,6 +260,7 @@ build_cached_function <- function(cached_function) {
 
     raw_call <- match.call()
     call     <- as.list(raw_call[-1]) # Strip function name but retain arguments.
+    call$force. <- NULL # Strip away the force. parameter, which is reserved.
 
     # Evaluate function call parameters in the calling environment
     for (name in names(call))

@@ -79,8 +79,8 @@ describe("cache function", {
       }, {
         expect_error(df_cached <- cached_fcn(key = 1:5, model_version, type, force. = FALSE),
                      "Caching layer should not be used")
-        assert(df_cached <- cached_fcn(key = 1:5, model_version, type, force. = TRUE))
       })
+      assert(df_cached <- cached_fcn(key = 1:5, model_version, type, force. = TRUE))
     })
   })
 
