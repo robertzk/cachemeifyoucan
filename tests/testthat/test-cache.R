@@ -68,4 +68,12 @@ describe("cache function", {
     })
   })
 
+  test_that('the force. parameter triggers cache re-population', {  
+    # First remove all tables in the local database.
+    expect_cached({
+      df_ref <- batch_data(1:5)
+      df_cached <- cached_fcn(key = 1:5, model_version, type, force. = TRUE)
+    })
+  })
+
 })

@@ -326,7 +326,7 @@ execute <- function(fcn_call) {
     uncached_data <- compute_and_cache_data(uncached_keys)
   }
 
-  cached_data   <- compute_cached_data(fcn_call, cached_keys)
+  cached_data <- compute_cached_data(fcn_call, cached_keys)
 
   data <- plyr::rbind.fill(uncached_data, cached_data)
   ## This seems to cause a bug.
