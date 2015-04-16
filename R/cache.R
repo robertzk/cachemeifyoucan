@@ -260,6 +260,7 @@ build_cached_function <- function(cached_function) {
 
     raw_call <- match.call()
     call     <- as.list(raw_call[-1]) # Strip function name but retain arguments.
+    call$force. <- NULL # Strip away the force. parameter, which is reserved.
 
     # Evaluate function call parameters in the calling environment
     for (name in names(call))
@@ -312,10 +313,9 @@ execute <- function(fcn_call) {
   remove_old_key(fcn_call$con, fcn_call$table, uncached_keys, fcn_call$output_key)
 
   compute_and_cache_data <- function(keys) {
-    on.exit(try(
-      write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key)
-    ))
     uncached_data <- compute_uncached_data(fcn_call, keys)
+    try_write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key)
+    uncached_data
   }
 
   if (length(uncached_keys) > fcn_call$batch_size &&
@@ -326,13 +326,17 @@ execute <- function(fcn_call) {
     uncached_data <- compute_and_cache_data(uncached_keys)
   }
 
-  cached_data   <- compute_cached_data(fcn_call, cached_keys)
+  cached_data <- compute_cached_data(fcn_call, cached_keys)
 
   data <- plyr::rbind.fill(uncached_data, cached_data)
   ## This seems to cause a bug.
   ## Have to sort to conform with order of keys.
   out <- data[order(match(data[[fcn_call$output_key]], keys), na.last = NA), ]
   out
+}
+
+try_write_data_safely <- function(...) {
+  try(write_data_safely(...))
 }
 
 match_all <- function(keys, df, column_name) {
