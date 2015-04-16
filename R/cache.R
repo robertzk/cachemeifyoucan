@@ -312,10 +312,9 @@ execute <- function(fcn_call) {
   remove_old_key(fcn_call$con, fcn_call$table, uncached_keys, fcn_call$output_key)
 
   compute_and_cache_data <- function(keys) {
-    on.exit(try(
-      write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key)
-    ))
     uncached_data <- compute_uncached_data(fcn_call, keys)
+    try_write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key)
+    uncached_data
   }
 
   if (length(uncached_keys) > fcn_call$batch_size &&
@@ -333,6 +332,10 @@ execute <- function(fcn_call) {
   ## Have to sort to conform with order of keys.
   out <- data[order(match(data[[fcn_call$output_key]], keys), na.last = NA), ]
   out
+}
+
+try_write_data_safely <- function(...) {
+  try(write_data_safely(...))
 }
 
 match_all <- function(keys, df, column_name) {
