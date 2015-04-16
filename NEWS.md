@@ -1,3 +1,7 @@
+# Version 0.1.4
+
+  * Critical fix for usage of the `force.` parameter.
+
 # Version 0.1.3
 
   * Integration with [batchman](http://github.com/peterhurford/batchman). If a call
