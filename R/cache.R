@@ -331,8 +331,7 @@ execute <- function(fcn_call) {
   data <- plyr::rbind.fill(uncached_data, cached_data)
   ## This seems to cause a bug.
   ## Have to sort to conform with order of keys.
-  out <- data[order(match(data[[fcn_call$output_key]], keys), na.last = NA), ]
-  out
+  data[order(match(data[[fcn_call$output_key]], keys), na.last = NA), , drop = FALSE]
 }
 
 try_write_data_safely <- function(...) {
