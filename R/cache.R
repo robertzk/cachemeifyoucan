@@ -34,6 +34,16 @@
 #'   Optional, but highly recommended.
 #' @param env character. The environment of the database connection if con
 #'   is a yaml cofiguration file.
+#' @param batch_size integer. Usually, the uncached operation is slow
+#'   (or we would not have to cache it!). However, fetching data from the
+#'   database is fast. To handle this dichotomy, the \code{batch_size}
+#'   parameter gives the ability to control the chunks in which to compute
+#'   and cache the uncached operation. This makes it more robust to failures,
+#'   and ensures fetching of uncached data is partially stored even when
+#'   errors occur midway through the process. The default is \code{100}.
+#'
+#'   Note that the \href{http://github.com/peterhurford/batchman}{batchman}
+#'   package should be installed for batching to take effect.
 #' @return A function with a caching layer that does not call
 #'   \code{uncached_function} with already computed records, but retrieves
 #'   those results from an underlying database table.
@@ -153,10 +163,14 @@
 ## # force.
 ## ###
 ##
-## # `force.` is a reserved argument for the to-be-cached function, if 
-## # it is specified to be `TRUE`, the caching layer will force to 
-## # repopulate the database tables for given ids. The default value
+## # `force.` is a reserved argument for the to-be-cached function. If 
+## # it is specified to be `TRUE`, the caching layer will forcibly
+## # repopulate the database tables for the given ids. The default value
 ## # is `FALSE`.
+##
+## cached_amazon_info <- cachemeifyoucan::cache(amazon_info,
+##   prefix = 'amazon_info', key = 'id', con = con)
+## cached_amazon_info(c(10, 20), force. = TRUE) # Will forcibly repopulate.
 ##
 ## ###
 ## # Advanced features
@@ -188,11 +202,12 @@
 ##   grab_sql_table(table_name = table_name, year = yr, month = mth, dbname = dbname)
 ## }
 ## }
-cache <- function(uncached_function, key, salt, con, prefix, env) {
+cache <- function(uncached_function, key, salt, con, prefix, env, batch_size = 100) {
   stopifnot(is.function(uncached_function),
     is.character(prefix), length(prefix) == 1,
     is.character(key), length(key) > 0,
-    is.atomic(salt) || is.list(salt))
+    is.atomic(salt) || is.list(salt),
+    is.numeric(batch_size))
 
   cached_function <- new("function")
 
@@ -214,6 +229,7 @@ cache <- function(uncached_function, key, salt, con, prefix, env) {
       , `_uncached_function` = uncached_function, `_con` = NULL
       , `_con_build` = c(list(con), if (!missing(env)) list(env))
       , `_env` = if (!missing(env)) env
+      , `_batch_size` = batch_size
       ),
       parent = environment(uncached_function))
 
@@ -275,7 +291,7 @@ build_cached_function <- function(cached_function) {
 
     cachemeifyoucan:::execute(
       cachemeifyoucan:::cached_function_call(`_uncached_function`, call,
-        parent.frame(), tbl_name, `_key`, `_con`, force.)
+        parent.frame(), tbl_name, `_key`, `_con`, force., `_batch_size`)
     )
   })
 
@@ -287,8 +303,7 @@ build_cached_function <- function(cached_function) {
 execute <- function(fcn_call) {
   # Grab the new/old keys
   keys <- fcn_call$call[[fcn_call$key]]
-  if (fcn_call$force) 
-  { 
+  if (fcn_call$force) { 
     uncached_keys <- keys 
   } else {
     uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
@@ -296,16 +311,27 @@ execute <- function(fcn_call) {
   cached_keys <- setdiff(keys, uncached_keys)
   remove_old_key(fcn_call$con, fcn_call$table, uncached_keys, fcn_call$output_key)
 
-  uncached_data <- compute_uncached_data(fcn_call, uncached_keys)
-  cached_data   <- compute_cached_data(fcn_call, cached_keys)
+  compute_and_cache_data <- function(keys) {
+    on.exit(try(
+      write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key)
+    ))
+    uncached_data <- compute_uncached_data(fcn_call, keys)
+  }
 
-  # Cache them
-  try(write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key))
+  if (length(uncached_keys) > fcn_call$batch_size &&
+      requireNamespace("batchman", quietly = TRUE)) {
+    uncached_data <- batchman::batch(compute_and_cache_data, "keys",
+      size = batch_size, combination_strategy = plyr::rbind.fill)(uncached_keys)
+  } else {
+    uncached_data <- compute_and_cache_data(uncached_keys)
+  }
+
+  cached_data   <- compute_cached_data(fcn_call, cached_keys)
 
   data <- plyr::rbind.fill(uncached_data, cached_data)
   ## This seems to cause a bug.
   ## Have to sort to conform with order of keys.
-  out <- data[order(match(data[[fcn_call$output_key]], keys), na.last = NA),]
+  out <- data[order(match(data[[fcn_call$output_key]], keys), na.last = NA), ]
   out
 }
 
@@ -322,7 +348,7 @@ compute_cached_data <- function(fcn_call, cached_keys) {
   error_fn(data_injector(fcn_call, cached_keys, TRUE))
 }
 
-cached_function_call <- function(fn, call, context, table, key, con, force) {
+cached_function_call <- function(fn, call, context, table, key, con, force, batch_size) {
   # TODO: (RK) Handle keys of length more than 1
   if (is.null(names(key))) {
     output_key <- key
@@ -331,7 +357,7 @@ cached_function_call <- function(fn, call, context, table, key, con, force) {
     key <- names(key)
   }
   structure(list(fn = fn, call = call, context = context, table = table, key = key,
-                 output_key = output_key, con = con, force = force),
+                 output_key = output_key, con = con, force = force, batch_size = batch_size),
     class = 'cached_function_call')
 }
 
