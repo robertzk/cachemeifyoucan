@@ -321,7 +321,7 @@ execute <- function(fcn_call) {
   if (length(uncached_keys) > fcn_call$batch_size &&
       requireNamespace("batchman", quietly = TRUE)) {
     uncached_data <- batchman::batch(compute_and_cache_data, "keys",
-      size = batch_size, combination_strategy = plyr::rbind.fill)(uncached_keys)
+      size = fcn_call$batch_size, combination_strategy = plyr::rbind.fill)(uncached_keys)
   } else {
     uncached_data <- compute_and_cache_data(uncached_keys)
   }
