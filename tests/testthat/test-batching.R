@@ -16,7 +16,7 @@ test_that("it does not call batchman::batch when uncached keys do not exceed bat
 
 test_that("it calls batchman::batch when uncached keys exceed batch size", {
   env <- list2env(list(called = FALSE))
-  package_stub("batchman", "batch", function(fn, ...) { env$called <- TRUE; fn }, {
+  package_stub("batchman", "robust_batch", function(...) { env$called <- TRUE; batchman::get_before_fn(..1)(..2) }, {
     expect_cached({
       df_ref <- batch_data(1:101)
       df_cached <- cached_fcn(key = 1:101, model_version, type)
