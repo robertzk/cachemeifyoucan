@@ -218,9 +218,16 @@ uncached <- function(fn) {
   stopifnot(is.function(fn))
   if (is(fn, "cached_function")) {
     f <- environment(fn)$`_uncached_function`
-    cache(f, key = environment(fn)$`_key`, salt = environment(fn)$`_salt`,
-             prefix = environment(fn)$`_prefix`, con = environment(fn)$`_con`,
-             force = TRUE)
+    ## borrowed from http://www.r-bloggers.com/hijacking-r-functions-changing-default-arguments/
+    hijack <- function (FUN, ...) {
+      .FUN <- FUN
+      args <- list(...)
+      invisible(lapply(seq_along(args), function(i) {
+          formals(.FUN)[[names(args)[i]]] <<- args[[i]]
+      }))
+      .FUN
+    }
+    alt_fn <- hijack(f, force. = TRUE)
   } else fn
 }
 
