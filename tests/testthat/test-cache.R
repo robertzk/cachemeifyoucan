@@ -1,5 +1,6 @@
 context('cache function')
 library(DBI)
+library(testthatsomemore)
 
 # Set up test fixture
 # Set up local database for now
@@ -65,6 +66,21 @@ describe("cache function", {
       df_ref <- batch_data(letters[1:5])
       cached_fcn(key = letters[1:5], model_version, type)
       expect_equal(df_ref[1, ], cached_fcn(key = 'a', model_version, type))
+    })
+  })
+
+  test_that('the force. parameter triggers cache re-population', {  
+    # First remove all tables in the local database.
+    expect_cached({
+      df_ref <- batch_data(1:5)
+      assert(cached_fcn(key = 1:5, model_version, type))
+      package_stub("cachemeifyoucan", "try_write_data_safely", function(...) {
+        stop("Caching layer should not be used")
+      }, {
+        expect_error(df_cached <- cached_fcn(key = 1:5, model_version, type, force. = FALSE),
+                     "Caching layer should not be used")
+      })
+      assert(df_cached <- cached_fcn(key = 1:5, model_version, type, force. = TRUE))
     })
   })
 

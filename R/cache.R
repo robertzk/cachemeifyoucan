@@ -34,8 +34,16 @@
 #'   Optional, but highly recommended.
 #' @param env character. The environment of the database connection if con
 #'   is a yaml cofiguration file.
-#' @param force logical. If force is \code{TRUE}, force to write to the
-#'   caching layer every time the function is called.
+#' @param batch_size integer. Usually, the uncached operation is slow
+#'   (or we would not have to cache it!). However, fetching data from the
+#'   database is fast. To handle this dichotomy, the \code{batch_size}
+#'   parameter gives the ability to control the chunks in which to compute
+#'   and cache the uncached operation. This makes it more robust to failures,
+#'   and ensures fetching of uncached data is partially stored even when
+#'   errors occur midway through the process. The default is \code{100}.
+#'
+#'   Note that the \href{http://github.com/peterhurford/batchman}{batchman}
+#'   package should be installed for batching to take effect.
 #' @return A function with a caching layer that does not call
 #'   \code{uncached_function} with already computed records, but retrieves
 #'   those results from an underlying database table.
@@ -152,6 +160,19 @@
 ## # We will now use different database tables for these two functions.
 ##
 ## ###
+## # force.
+## ###
+##
+## # `force.` is a reserved argument for the to-be-cached function. If
+## # it is specified to be `TRUE`, the caching layer will forcibly
+## # repopulate the database tables for the given ids. The default value
+## # is `FALSE`.
+##
+## cached_amazon_info <- cachemeifyoucan::cache(amazon_info,
+##   prefix = 'amazon_info', key = 'id', con = con)
+## cached_amazon_info(c(10, 20), force. = TRUE) # Will forcibly repopulate.
+##
+## ###
 ## # Advanced features
 ## ###
 ##
@@ -181,24 +202,34 @@
 ##   grab_sql_table(table_name = table_name, year = yr, month = mth, dbname = dbname)
 ## }
 ## }
-cache <- function(uncached_function, key, salt, con, prefix, env, force = FALSE) {
+cache <- function(uncached_function, key, salt, con, prefix, env, batch_size = 100) {
   stopifnot(is.function(uncached_function),
     is.character(prefix), length(prefix) == 1,
     is.character(key), length(key) > 0,
     is.atomic(salt) || is.list(salt),
-    is.logical(force))
+    is.numeric(batch_size))
 
   cached_function <- new("function")
 
   # Retain the same formal arguments as the base function.
   formals(cached_function) <- formals(uncached_function)
 
+  # Check "force." name collision
+  if ("force." %in% names(formals(cached_function))) {
+    stop(sQuote("force."), " is a reserved argument in caching layer, ",
+         "collision with formals in the cached function.", call. = FALSE)
+  }
+
+  # Default force. argument to be FALSE
+  formals(cached_function)$force. <- FALSE
+
   # Inject some values we will need in the body of the caching layer.
   environment(cached_function) <-
     list2env(list(`_prefix` = prefix, `_key` = key, `_salt` = salt
-      , `_uncached_function` = uncached_function, `_con` = NULL, `_force` = force
+      , `_uncached_function` = uncached_function, `_con` = NULL
       , `_con_build` = c(list(con), if (!missing(env)) list(env))
       , `_env` = if (!missing(env)) env
+      , `_batch_size` = batch_size
       ),
       parent = environment(uncached_function))
 
@@ -239,8 +270,10 @@ build_cached_function <- function(cached_function) {
     #   fn(1:2), fn(x = 1:2), fn(y = 5, 1:2), fn(y = 5, x = 1:2)
     # then `call` will be a list with names "x" and "y" in all
     # situations.
+
     raw_call <- match.call()
-    call <- as.list(raw_call[-1]) # Strip function name but retain arguments.
+    call     <- as.list(raw_call[-1]) # Strip function name but retain arguments.
+    call$force. <- NULL # Strip away the force. parameter, which is reserved.
 
     # Evaluate function call parameters in the calling environment
     for (name in names(call))
@@ -258,6 +291,7 @@ build_cached_function <- function(cached_function) {
     # The database table to use is determined by the prefix and
     # what values of the salted parameters were used at calltime.
     tbl_name <- cachemeifyoucan:::table_name(`_prefix`, true_salt)
+
     # Check database connection and reconnect if necessary
     if (is.null(`_con`) || !cachemeifyoucan:::is_db_connected(`_con`)) {
       if (!is.null(`_con_build`[[1]])) {
@@ -267,9 +301,11 @@ build_cached_function <- function(cached_function) {
       }
     }
 
+    if ("force." %in% names(call)) force. <- call[["force."]]
+
     cachemeifyoucan:::execute(
       cachemeifyoucan:::cached_function_call(`_uncached_function`, call,
-        parent.frame(), tbl_name, `_key`, `_con`, `_force`)
+        parent.frame(), tbl_name, `_key`, `_con`, force., `_batch_size`)
     )
   })
 
@@ -281,20 +317,53 @@ build_cached_function <- function(cached_function) {
 execute <- function(fcn_call) {
   # Grab the new/old keys
   keys <- fcn_call$call[[fcn_call$key]]
-  if (isTRUE(fcn_call$force)) { uncached_keys <- keys }
-  else {
+
+  if (fcn_call$force) {
+    uncached_keys <- keys
+  } else {
     uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
   }
   cached_keys <- setdiff(keys, uncached_keys)
+  remove_old_key(fcn_call$con, fcn_call$table, uncached_keys, fcn_call$output_key)
 
-  uncached_data <- compute_uncached_data(fcn_call, uncached_keys)
-  cached_data   <- compute_cached_data(fcn_call, cached_keys)
+  compute_and_cache_data <- function(keys) {
+    uncached_data <- compute_uncached_data(fcn_call, keys)
+    try_write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key)
+    uncached_data
+  }
 
-  # Cache them
-  try(write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key))
+  if (length(uncached_keys) > fcn_call$batch_size &&
+      requireNamespace("batchman", quietly = TRUE)) {
+    batched_fn <- batchman::batch(
+      compute_and_cache_data, "keys",
+      size = fcn_call$batch_size,
+      combination_strategy = plyr::rbind.fill,
+      batchman.verbose = FALSE
+    )
+    uncached_data <- batchman::robust_batch(
+      batched_fn,
+      uncached_keys,
+      batchman.verbose = FALSE
+    )
+  } else {
+    uncached_data <- compute_and_cache_data(uncached_keys)
+  }
+
+  cached_data <- compute_cached_data(fcn_call, cached_keys)
 
   data <- plyr::rbind.fill(uncached_data, cached_data)
-  data[match(keys, data[[fcn_call$output_key]]), ] # Re-arrange back into expected order
+  ## This seems to cause a bug.
+  ## Have to sort to conform with order of keys.
+  data[order(match(data[[fcn_call$output_key]], keys), na.last = NA), , drop = FALSE]
+}
+
+try_write_data_safely <- function(...) {
+  try(write_data_safely(...))
+}
+
+match_all <- function(keys, df, column_name) {
+  m <- match(keys, df[[column_name]])
+  df(order(m))
 }
 
 compute_uncached_data <- function(fcn_call, uncached_keys) {
@@ -305,7 +374,7 @@ compute_cached_data <- function(fcn_call, cached_keys) {
   error_fn(data_injector(fcn_call, cached_keys, TRUE))
 }
 
-cached_function_call <- function(fn, call, context, table, key, con, force) {
+cached_function_call <- function(fn, call, context, table, key, con, force, batch_size) {
   # TODO: (RK) Handle keys of length more than 1
   if (is.null(names(key))) {
     output_key <- key
@@ -314,7 +383,7 @@ cached_function_call <- function(fn, call, context, table, key, con, force) {
     key <- names(key)
   }
   structure(list(fn = fn, call = call, context = context, table = table, key = key,
-                 output_key = output_key, con = con, force = force),
+                 output_key = output_key, con = con, force = force, batch_size = batch_size),
     class = 'cached_function_call')
 }
 
@@ -334,10 +403,10 @@ data_injector_uncached <- function(fcn_call, keys) {
 }
 
 data_injector_cached <- function(fcn_call, keys) {
-  db2df(dbGetQuery(fcn_call$con,
-    paste("SELECT * FROM", fcn_call$table, "WHERE", fcn_call$output_key, "IN (",
-    paste(sanitize_sql(keys), collapse = ', '), ")")),
-    fcn_call$con, fcn_call$output_key)
+  sql <- paste("SELECT * FROM", fcn_call$table, "WHERE", fcn_call$output_key, "IN (",
+               paste(sanitize_sql(keys), collapse = ', '), ")")
+  db2df(dbGetQuery(fcn_call$con, sql),
+        fcn_call$con, fcn_call$output_key)
 }
 
 sanitize_sql <- function(x) { UseMethod("sanitize_sql") }

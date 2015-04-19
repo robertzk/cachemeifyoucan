@@ -1,0 +1,5 @@
+cache:
+  adapter: MonetDB
+  dbname: voc
+  user: 'monetdb'
+  password: 'monetdb'

@@ -47,3 +47,15 @@ S3, a flat file. For more complex strategies, it will be a little bit of work
 to set up the correct caching call, but the resulting performance
 benefits should be worth it.
 
+# Testing
+
+To run tests locally, you'll need the following:
+
+* A working PostgreSQL installation and a dedicated user account, "postgres".
+* A database called "travis" that user "postgres" can access.
+
+In order to run the tests in your R console, run the following commands:
+
+```R
+test("/path/to/cachemeifyoucan")
+```

@@ -1,5 +1,5 @@
 #' Database table name for a given prefix and salt.
-#' 
+#'
 #' @name table_name
 #' @param prefix character. Prefix.
 #' @param salt list. Salt for the table name.
@@ -7,7 +7,7 @@
 #' @return the table name. This will just be \code{"prefix_"}
 #'   appended with the MD5 hash of the digest of the \code{salt}.
 table_name <- function(prefix, salt) {
-  paste0(prefix, "_", digest::digest(salt))
+  tolower(paste0(prefix, "_", digest::digest(salt)))
 }
 
 #' Fetch the map of column names.
@@ -16,7 +16,7 @@ table_name <- function(prefix, salt) {
 #' @param dbconn SQLConnection. A database connection.
 #' @importFrom DBI dbGetQuery
 column_names_map <- function(dbconn) {
-  dbGetQuery(dbconn, 'SELECT * FROM column_names')
+  DBI::dbGetQuery(dbconn, 'SELECT * FROM column_names')
 }
 
 #' MD5 digest of column names.
@@ -79,12 +79,12 @@ read_data <- function(dbconn, tblname, ids, key) {
 #' @importFrom DBI dbGetQuery
 #' @importFrom DBI dbRemoveTable
 dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
-  dbRemoveTable(dbconn, tblname)
+  DBI::dbRemoveTable(dbconn, tblname)
   success <- FALSE
   df[, vapply(df, function(x) all(is.na(x)), logical(1))] <- as.character(NA)
   while (!success) {
-    dbWriteTable(dbconn, tblname, df, append = FALSE, row.names = 0)
-    num_rows <- dbGetQuery(dbconn, paste0('SELECT COUNT(*) FROM ', tblname))
+    DBI::dbWriteTable(dbconn, tblname, df, append = FALSE, row.names = 0)
+    num_rows <- DBI::dbGetQuery(dbconn, paste0('SELECT COUNT(*) FROM ', tblname))
     if (num_rows == nrow(df)) success <- TRUE
   }
 }
@@ -94,7 +94,7 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
 #' This function will be mindful of two problems: non-existent columns
 #' and long column names.
 #'
-#' Since this is meant to be used as a helper function for caching 
+#' Since this is meant to be used as a helper function for caching
 #' data, we must take a few precautions. If certain variables are not
 #' available for older data but are introduced for newer data, we
 #' must be careful to create those columns first.
@@ -123,7 +123,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     if (length(id_cols) == 0)
       stop("The data you are writing to the database must contain at least one ",
            "column ending with '_id'")
-  } else 
+  } else
     id_cols <- key
 
   write_column_names_map <- function(raw_names) {
@@ -133,18 +133,19 @@ write_data_safely <- function(dbconn, tblname, df, key) {
 
     # If we don't do this, we will get really weird bugs with numeric things stored as character
     # For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
-    old_options <- options(scipen = 20, digits = 20) 
+    old_options <- options(scipen = 20, digits = 20)
     on.exit(options(old_options))
 
     # Store the map of raw to MD5'ed column names in the column_names table.
-    if (!dbExistsTable(dbconn, 'column_names'))
+    if (!DBI::dbExistsTable(dbconn, 'column_names'))
       #dbWriteTable(dbconn, 'column_names', column_map, row.names = 0)
       dbWriteTableUntilSuccess(dbconn, 'column_names', column_map)
     else {
-      raw_names <- dbGetQuery(dbconn, 'SELECT raw_name FROM column_names')[[1]]
+      raw_names <- DBI::dbGetQuery(dbconn, 'SELECT raw_name FROM column_names')[[1]]
       column_map <- column_map[!is.element(column_map$raw_name, raw_names), ]
-      if (NROW(column_map) > 0)
+      if (NROW(column_map) > 0) {
         dbWriteTable(dbconn, 'column_names', column_map, append = TRUE, row.names = 0)
+      }
     }
     TRUE
   }
@@ -158,8 +159,8 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     df[, id_cols] <- df[, id_cols_ix]
 
     # Convert some types to character so they go in the DB properly.
-    to_chars <- vapply(df, function(x) is.factor(x) || is.ordered(x) || is.logical(x), logical(1))
-    df[, to_chars] <- lapply(df[, to_chars], as.character)
+    to_chars <- unname(vapply(df, function(x) is.factor(x) || is.ordered(x) || is.logical(x), logical(1)))
+    df[to_chars] <- lapply(df[to_chars], as.character)
 
     # dbWriteTable(dbconn, tblname, df, row.names = 0, append = TRUE)
     # Believe it or not, the above does not work! RPostgreSQL seems to have a
@@ -170,7 +171,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
 
     # If we don't do this, we will get really weird bugs with numeric things stored as character
     # For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
-    old_options <- options(scipen = 20, digits = 20) 
+    old_options <- options(scipen = 20, digits = 20)
     on.exit(options(old_options))
 
     for (slice in slices) {
@@ -179,15 +180,19 @@ write_data_safely <- function(dbconn, tblname, df, key) {
         dbWriteTableUntilSuccess(dbconn, tblname, df)
         append <- TRUE
       } else {
-        RPostgreSQL::postgresqlpqExec(dbconn, 
-          build_insert_query(tblname, df[slice, , drop = FALSE]))
+        insert_query <- build_insert_query(tblname, df[slice, , drop = FALSE])
+        if (is(dbconn, "MonetDBConnection")) {
+          DBI::dbSendQuery(dbconn, insert_query)
+        } else {
+          RPostgreSQL::postgresqlpqExec(dbconn, insert_query)
+        }
     }}
   }
 
-  if (!dbExistsTable(dbconn, tblname)) 
+  if (!DBI::dbExistsTable(dbconn, tblname))
     return(write_column_hashed_data(df, append = FALSE))
 
-  one_row <- dbGetQuery(dbconn, paste("SELECT * FROM ", tblname, " LIMIT 1"))
+  one_row <- DBI::dbGetQuery(dbconn, paste("SELECT * FROM ", tblname, " LIMIT 1"))
   if (nrow(one_row) == 0) {
     dbRemoveTable(dbconn, tblname)
     return(write_column_hashed_data(df, append = FALSE))
@@ -211,7 +216,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     if (index > length(df)) index <- col
     sql <- paste0("ALTER TABLE ", tblname, " ADD COLUMN ",
                      col, " ", class_map[[class(df[[index]])[1]]])
-    suppressWarnings(dbGetQuery(dbconn, sql))
+    suppressWarnings(DBI::dbGetQuery(dbconn, sql))
   }
 
   # Columns that are missing in data need to be set to NA
@@ -219,7 +224,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
   if (sum(missing_cols) > 0) {
     raw_names <- translate_column_names(colnames(one_row)[missing_cols], dbconn)
     stopifnot(is.character(raw_names))
-    df[, raw_names] <- lapply(sapply(one_row[, missing_cols], class), as, object = NA) 
+    df[, raw_names] <- lapply(sapply(one_row[, missing_cols], class), as, object = NA)
   }
 
   write_column_hashed_data(df)
@@ -266,6 +271,25 @@ get_new_key <- function(dbconn, tbl_name, ids, key) {
   setdiff(ids, present_ids)
 }
 
+#' remove old keys to maintain uniqueness of "id" for the sake of force pushing
+#'
+#' @name remove_old_key
+#' @param dbconn SQLConnection. The database connection.
+#' @param tbl_name character. Database table name.
+#' @param ids vector. A vector of ids.
+#' @param key character. Identifier of database table.
+#' @importFrom DBI dbExistsTable
+#' @importFrom DBI dbSendQuery
+remove_old_key <- function(dbconn, tbl_name, ids, key) {
+  if (length(ids) == 0) return(NULL)
+  if (!DBI::dbExistsTable(dbconn, tbl_name)) return(NULL)
+  id_column_name <- get_hashed_names(key)
+  DBI::dbSendQuery(dbconn, paste0(
+    "DELETE FROM ", tbl_name, " WHERE ", id_column_name, " IN (",
+    paste(ids, collapse = ","), ")"))
+  invisible(NULL)
+}
+
 #' Obtain a connection to a database.
 #'
 #' By default, this function will read from the `cache` environment.
@@ -309,7 +333,7 @@ db_connection <- function(database.yml, env = "cache",
   }
   # Authorization arguments needed by the DBMS instance
   # TODO: (RK) Inform user if they forgot database.yml entries.
-  do.call(DBI::dbConnect, append(list(drv = DBI::dbDriver(config.database$adapter)), 
+  do.call(DBI::dbConnect, append(list(drv = DBI::dbDriver(config.database$adapter)),
     config.database[!names(config.database) %in% "adapter"]))
 }
 
@@ -328,19 +352,18 @@ build_connection <- function(con, env) {
   } else if (length(grep("SQLConnection", class(con)[1])) > 0) {
     #print("Connection is already established")
     return(con)
-  } else { 
+  } else {
     stop("Invalid connection setup")
   }
 }
 
 #' Helper function to check the database connection.
-#' 
+#'
 #' @param con SQLConnection.
 #' @return `TRUE` or `FALSE` indicating if the database connection is good.
 #' @export
 is_db_connected <- function(con) {
-  res <- tryCatch(fetch(dbSendQuery(con, "SELECT 1 + 1"))[1,1], error = function(e) NULL)
+  res <- tryCatch(fetch(DBI::dbSendQuery(con, "SELECT 1 + 1"))[1,1], error = function(e) NULL)
   if(is.null(res) || res != 2) return(FALSE)
   TRUE
 }
-
