@@ -248,7 +248,6 @@ cache <- function(uncached_function, key, salt, con, prefix, env, batch_size = 1
 uncached <- function(fn) {
   stopifnot(is.function(fn))
   if (is(fn, "cached_function")) {
-    f <- environment(fn)$`_uncached_function`
     ## borrowed from http://www.r-bloggers.com/hijacking-r-functions-changing-default-arguments/
     hijack <- function (FUN, ...) {
       .FUN <- FUN
@@ -258,7 +257,7 @@ uncached <- function(fn) {
       }))
       .FUN
     }
-    alt_fn <- hijack(f, force. = TRUE)
+    alt_fn <- hijack(fn, force. = TRUE)
   } else fn
 }
 
@@ -301,7 +300,10 @@ build_cached_function <- function(cached_function) {
       }
     }
 
-    if ("force." %in% names(call)) force. <- call[["force."]]
+    if ("force." %in% names(call)) {
+      force. <- call[["force."]]
+      message("`force.` detected. Overwriting cache...\n")
+    }
 
     cachemeifyoucan:::execute(
       cachemeifyoucan:::cached_function_call(`_uncached_function`, call,
