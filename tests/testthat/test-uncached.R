@@ -49,9 +49,6 @@ describe("uncached function", {
       expect_equal(data.frame(id = 1, value = "test"), uncached(cc_func)(1, "test"))
       # and now the c_func will also read the new value from cache, because we've used force
       expect_equal("test", c_func(1, "test")$value)
-
-      # clean up again
-      lapply(dbListTables(conn), function(t) dbRemoveTable(conn, t))
     })
   })
 })
