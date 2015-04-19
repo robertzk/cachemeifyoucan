@@ -40,6 +40,8 @@ describe("uncached function", {
       cc_func <- cache(func, key = c(key = "id"), c("value"), con = conn, prefix = prefix)
 
       # cached version works as expected
+      print(df[1,])
+      print(c_func(1, "test"))
       expect_equal(df[1,], c_func(1, "test"))
       # both pre- and after-cache
       expect_equal(df[1,], c_func(1, "test"))
