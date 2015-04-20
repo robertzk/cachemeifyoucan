@@ -163,7 +163,7 @@
 ## # force.
 ## ###
 ##
-## # `force.` is a reserved argument for the to-be-cached function. If 
+## # `force.` is a reserved argument for the to-be-cached function. If
 ## # it is specified to be `TRUE`, the caching layer will forcibly
 ## # repopulate the database tables for the given ids. The default value
 ## # is `FALSE`.
@@ -238,14 +238,26 @@ cache <- function(uncached_function, key, salt, con, prefix, env, batch_size = 1
 
 #' Fetch the uncached function
 #'
-#' If applied to a regular function it returns this function
+#' Calling the result will force the function to overwrite cache, but not read
+#' from it.
+#'
+#' If applied to a regular function it returns this function.
 #'
 #' @param fn function. The function that you want to uncache.
 #' @export
 uncached <- function(fn) {
   stopifnot(is.function(fn))
   if (is(fn, "cached_function")) {
-    environment(fn)$`_uncached_function`
+    ## borrowed from http://www.r-bloggers.com/hijacking-r-functions-changing-default-arguments/
+    hijack <- function (FUN, ...) {
+      .FUN <- FUN
+      args <- list(...)
+      invisible(lapply(seq_along(args), function(i) {
+          formals(.FUN)[[names(args)[i]]] <<- args[[i]]
+      }))
+      .FUN
+    }
+    alt_fn <- hijack(fn, force. = TRUE)
   } else fn
 }
 
@@ -288,7 +300,10 @@ build_cached_function <- function(cached_function) {
       }
     }
 
-    if ("force." %in% names(call)) force. <- call[["force."]]
+    if ("force." %in% names(call)) {
+      force. <- call[["force."]]
+      message("`force.` detected. Overwriting cache...\n")
+    }
 
     cachemeifyoucan:::execute(
       cachemeifyoucan:::cached_function_call(`_uncached_function`, call,
@@ -304,8 +319,9 @@ build_cached_function <- function(cached_function) {
 execute <- function(fcn_call) {
   # Grab the new/old keys
   keys <- fcn_call$call[[fcn_call$key]]
-  if (fcn_call$force) { 
-    uncached_keys <- keys 
+
+  if (fcn_call$force) {
+    uncached_keys <- keys
   } else {
     uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
   }
