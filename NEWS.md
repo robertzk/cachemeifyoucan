@@ -2,6 +2,10 @@
 
   * Batchman integration now uses `robust_batch`.
 
+# Version 0.1.5
+
+  * Simple generic bug fix.
+  
 # Version 0.1.4
 
   * Critical fix for usage of the `force.` parameter.
