@@ -1,3 +1,8 @@
+# Version 0.1.6.1
+
+  * Added `cachemeifyoucan.verbose` global option for whether to display 
+    batch caching progress.
+
 # Version 0.1.6
 
   * Batchman integration now uses `robust_batch`.
