@@ -20,7 +20,7 @@ Imports:
 Suggests:
     knitr,
     testthatsomemore,
-    batchman (>= 0.3.2)
+    batchman (>= 1.0.0)
 License: MIT
 LazyData: true
 Roxygen: list(wrap = FALSE)
