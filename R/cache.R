@@ -363,7 +363,7 @@ execute <- function(fcn_call) {
   # Since computing and caching data may take a long time and some of the
   # keys may have been populated by a different R process (in case of parallel)
   # cache requests, we need to query *now* which keys are cached.
-  cached_keys <- Reduce(setdiff, list(keys, uncached_keys, intercepted_keys$keys)
+  cached_keys <- Reduce(setdiff, list(keys, uncached_keys, intercepted_keys$keys))
   cached_data <- compute_cached_data(fcn_call, cached_keys)
 
   data <- plyr::rbind.fill(uncached_data, cached_data)
