@@ -1,3 +1,10 @@
+# Version 0.1.6.2
+
+  * If two users are populating the caching layer at the same time, the uncached
+    function will not be run twice by both functions. Instead, each attempt to 
+    run the uncached function will query the database for whether those records
+    have been cached. This leads to a speed-up during parallel cache population.
+
 # Version 0.1.6.1
 
   * Added `cachemeifyoucan.verbose` global option for whether to display 
