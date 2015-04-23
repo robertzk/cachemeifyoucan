@@ -340,7 +340,9 @@ execute <- function(fcn_call) {
       compute_and_cache_data, "keys",
       size = fcn_call$batch_size,
       combination_strategy = plyr::rbind.fill,
-      batchman.verbose = verbose()
+      batchman.verbose = verbose(),
+      retry = 3,
+      stop = TRUE
     )
     uncached_data <- batched_fn(uncached_keys)
   } else {
