@@ -335,7 +335,7 @@ execute <- function(fcn_call) {
     # Re-query which keys are not cached, since someone else could have
     # populated them in parallel (if another user requested the same IDs).
     uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
-    intercepted_keys <- c(intercepted_keys$keys, setdiff(keys, uncached_keys))
+    intercepted_keys$keys <- c(intercepted_keys$keys, setdiff(keys, uncached_keys))
     keys <- uncached_keys
     if (!length(keys)) return(data.frame())
     uncached_data <- compute_uncached_data(fcn_call, keys)
