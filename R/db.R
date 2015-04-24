@@ -267,7 +267,10 @@ get_new_key <- function(dbconn, tbl_name, ids, key) {
   if (!DBI::dbExistsTable(dbconn, tbl_name)) return(ids)
   id_column_name <- get_hashed_names(key)
   present_ids <- DBI::dbGetQuery(dbconn, paste0(
-    "SELECT ", id_column_name, " FROM ", tbl_name))[[1]]
+    "SELECT ", id_column_name, " FROM ", tbl_name))
+  # If the table is empty, a 0-by-0 dataframe will be returned, so
+  # we must be careful.
+  present_ids <- if (NROW(present_ids)) present_ids[[1]] else integer(0)
   setdiff(ids, present_ids)
 }
 

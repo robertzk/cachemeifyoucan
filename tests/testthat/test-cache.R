@@ -73,13 +73,13 @@ describe("cache function", {
     # First remove all tables in the local database.
     expect_cached({
       df_ref <- batch_data(1:5)
-      assert(cached_fcn(key = 1:5, model_version, type))
       package_stub("cachemeifyoucan", "try_write_data_safely", function(...) {
         stop("Caching layer should not be used")
       }, {
         expect_error(df_cached <- cached_fcn(key = 1:5, model_version, type, force. = FALSE),
                      "Caching layer should not be used")
       })
+      cached_fcn(key = 1:5, model_version, type)
       assert(df_cached <- cached_fcn(key = 1:5, model_version, type, force. = TRUE))
     })
   })
