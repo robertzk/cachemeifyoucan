@@ -13,7 +13,7 @@ install:
 - "sudo R CMD javareconf"
 - "./travis-tool.sh install_r yaml DBI rJava RJDBC RPostgreSQL testthat knitr devtools digest"
 - "./travis-tool.sh install_r arules pbapply memoise stringr testthat"
-- "./travis-tool.sh install_github robertzk/Ramd peterhurford/batchman"
+- "./travis-tool.sh install_github robertzk/Ramd peterhurford/batchman@1.0.0.9000"
 - "./travis-tool.sh install_github robertzk/stagerunner"
 - "./travis-tool.sh install_github robertzk/statsUtils"
 - "./travis-tool.sh install_github robertzk/mungebits"
