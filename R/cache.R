@@ -275,8 +275,9 @@ build_cached_function <- function(cached_function) {
     call$force. <- NULL # Strip away the force. parameter, which is reserved.
 
     # Evaluate function call parameters in the calling environment
-    for (name in names(call))
+    for (name in names(call)) {
       call[[name]] <- eval.parent(call[[name]])
+    }
 
     # Only apply salt on provided values.
     true_salt <- call[intersect(names(call), `_salt`)]
