@@ -275,8 +275,9 @@ build_cached_function <- function(cached_function) {
     call$force. <- NULL # Strip away the force. parameter, which is reserved.
 
     # Evaluate function call parameters in the calling environment
-    for (name in names(call))
+    for (name in names(call)) {
       call[[name]] <- eval.parent(call[[name]])
+    }
 
     # Only apply salt on provided values.
     true_salt <- call[intersect(names(call), `_salt`)]
@@ -325,10 +326,19 @@ execute <- function(fcn_call) {
   } else {
     uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
   }
-  cached_keys <- setdiff(keys, uncached_keys)
   remove_old_key(fcn_call$con, fcn_call$table, uncached_keys, fcn_call$output_key)
 
+  # If some keys were populated by another process, we will keep track of those
+  # so that we do not have to duplicate the caching effort.
+  intercepted_keys <- list2env(list(keys = integer(0)))
+
   compute_and_cache_data <- function(keys) {
+    # Re-query which keys are not cached, since someone else could have
+    # populated them in parallel (if another user requested the same IDs).
+    uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+    intercepted_keys$keys <- c(intercepted_keys$keys, setdiff(keys, uncached_keys))
+    keys <- uncached_keys
+    if (!length(keys)) return(data.frame())
     uncached_data <- compute_uncached_data(fcn_call, keys)
     try_write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key)
     uncached_data
@@ -351,6 +361,10 @@ execute <- function(fcn_call) {
     uncached_data <- compute_and_cache_data(uncached_keys)
   }
 
+  # Since computing and caching data may take a long time and some of the
+  # keys may have been populated by a different R process (in case of parallel)
+  # cache requests, we need to query *now* which keys are cached.
+  cached_keys <- Reduce(setdiff, list(keys, uncached_keys, intercepted_keys$keys))
   cached_data <- compute_cached_data(fcn_call, cached_keys)
 
   data <- plyr::rbind.fill(uncached_data, cached_data)
