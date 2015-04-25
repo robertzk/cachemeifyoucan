@@ -1,3 +1,7 @@
+# Version 0.1.7
+
+  * Integrated batchman v1.0.0.9000, which fixes robust functionality.
+
 # Version 0.1.6.2
 
   * If two users are populating the caching layer at the same time, the uncached
