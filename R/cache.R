@@ -433,7 +433,7 @@ data_injector_cached <- function(fcn_call, keys) {
   ## Now we have to merge all the data.frames in the list into one and return.
   ## Notice that these data frames have different column names (that's the whole point of
   ## our columnar sharding), except for the key by which we query.
-  shards <- get_shards_for_tbl_name(fcn_call$table)
+  shards <- get_shards_for_table(fcn_call$table)
   lst <- lapply(shards, function(shard) read_df_from_a_shard(fnc_call, keys, shard))
   Reduce(function(...) merge(..., by = fcn_call$key, all = T), lst)
 }
@@ -445,6 +445,7 @@ read_df_from_a_shard <- function(fcn_call, keys, shard) {
         fcn_call$con, fcn_call$output_key)
 }
 
+## Gotta love some method dispatch here in cachemeifyoucan
 sanitize_sql <- function(x) { UseMethod("sanitize_sql") }
 sanitize_sql.numeric <- function(x) { x }
 sanitize_sql.character <- function(x) {

@@ -280,10 +280,11 @@ get_new_key <- function(dbconn, tbl_name, ids, key) {
   id_column_name <- get_hashed_names(key)
   shards <- get_shards_for_table(tbl_name)
   if(is.null(shards)) return(integer(0))
+  ## We can check only the first shard because all shards have the same keys
   present_ids <- DBI::dbGetQuery(dbconn, paste0(
     "SELECT ", id_column_name, " FROM ", shards[1]))
-  # If the table is empty, a 0-by-0 dataframe will be returned, so
-  # we must be careful.
+  ## If the table is empty, a 0-by-0 dataframe will be returned, so
+  ## we must be careful.
   present_ids <- if (NROW(present_ids)) present_ids[[1]] else integer(0)
   setdiff(ids, present_ids)
 }
@@ -301,9 +302,13 @@ remove_old_key <- function(dbconn, tbl_name, ids, key) {
   if (length(ids) == 0) return(invisible(NULL))
   if (!DBI::dbExistsTable(dbconn, tbl_name)) return(invisible(NULL))
   id_column_name <- get_hashed_names(key)
-  DBI::dbSendQuery(dbconn, paste0(
-    "DELETE FROM ", tbl_name, " WHERE ", id_column_name, " IN (",
-    paste(ids, collapse = ","), ")"))
+  shards <- get_shards_for_table(tbl_name)
+  ## In this case though, we need to delete from all shards to keep them consistent
+  sapply(shards, function(shard) {
+    DBI::dbSendQuery(dbconn, paste0(
+      "DELETE FROM ", shard, " WHERE ", id_column_name, " IN (",
+      paste(ids, collapse = ","), ")"))
+  })
   invisible(NULL)
 }
 
