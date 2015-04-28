@@ -248,7 +248,14 @@ cache <- function(uncached_function, key, salt, con, prefix, env, batch_size = 1
 uncached <- function(fn) {
   stopifnot(is.function(fn))
   if (is(fn, "cached_function")) {
-    ## borrowed from http://www.r-bloggers.com/hijacking-r-functions-changing-default-arguments/
+    ## When calling the uncached function we want to overwrite cached values
+    ## so that next time we call the cached version we will get the latest results.
+    ## This can be useful when your cache become stale and you want to overwrite it with
+    ## new data.
+
+    ## If a cached function is passed **force.** parameter we will get the becavior we want.
+    ## We are going to *hijack* the function call and return a function with **force. = TRUE**
+    ## Borrowed implementation from [here](http://www.r-bloggers.com/hijacking-r-functions-changing-default-arguments/)
     hijack <- function (FUN, ...) {
       .FUN <- FUN
       args <- list(...)
@@ -262,37 +269,40 @@ uncached <- function(fn) {
 }
 
 build_cached_function <- function(cached_function) {
-  # All cached functions will have the same body.
+  ## All cached functions will have the same body.
   body(cached_function) <- quote({
-    # If a user calls the uncached_function with, e.g.,
-    #   fn <- function(x, y) { ... }
-    #   fn(1:2), fn(x = 1:2), fn(y = 5, 1:2), fn(y = 5, x = 1:2)
-    # then `call` will be a list with names "x" and "y" in all
-    # situations.
+    ## If a user calls the uncached_function with, e.g.,
+    ##   fn <- function(x, y) { ... }
+    ##   fn(1:2), fn(x = 1:2), fn(y = 5, 1:2), fn(y = 5, x = 1:2)
+    ## then `call` will be a list with names "x" and "y" in all
+    ## situations.
 
     raw_call <- match.call()
-    call     <- as.list(raw_call[-1]) # Strip function name but retain arguments.
-    call$force. <- NULL # Strip away the force. parameter, which is reserved.
+    ## Strip function name but retain arguments.
+    call     <- as.list(raw_call[-1])
+    ## Strip away the force. parameter, which is reserved.
+    is_force <- call$force.
+    call$force. <- NULL
 
-    # Evaluate function call parameters in the calling environment
+    ## Evaluate function call parameters in the calling environment
     for (name in names(call)) {
       call[[name]] <- eval.parent(call[[name]])
     }
 
-    # Only apply salt on provided values.
+    ## Only apply salt on provided values.
     true_salt <- call[intersect(names(call), `_salt`)]
 
-    # Since the values in `call` might be expressions, evaluate them
-    # in the calling environment to get their actual values.
+    ## Since the values in `call` might be expressions, evaluate them
+    ## in the calling environment to get their actual values.
     for (name in names(true_salt)) {
       true_salt[[name]] <- eval.parent(true_salt[[name]])
     }
 
-    # The database table to use is determined by the prefix and
-    # what values of the salted parameters were used at calltime.
+    ## The database table to use is determined by the prefix and
+    ## what values of the salted parameters were used at calltime.
     tbl_name <- cachemeifyoucan:::table_name(`_prefix`, true_salt)
 
-    # Check database connection and reconnect if necessary
+    ## Check database connection and reconnect if necessary
     if (is.null(`_con`) || !cachemeifyoucan:::is_db_connected(`_con`)) {
       if (!is.null(`_con_build`[[1]])) {
         `_con` <<- do.call(cachemeifyoucan:::build_connection, `_con_build`)
@@ -301,10 +311,11 @@ build_cached_function <- function(cached_function) {
       }
     }
 
-    if ("force." %in% names(call)) {
-      force. <- call[["force."]]
+    ## Check whether **force.** was set
+    if (isTRUE(is_force)) {
+      force. <- TRUE
       message("`force.` detected. Overwriting cache...\n")
-    }
+    } else force. <- FALSE
 
     cachemeifyoucan:::execute(
       cachemeifyoucan:::cached_function_call(`_uncached_function`, call,
@@ -316,9 +327,9 @@ build_cached_function <- function(cached_function) {
   cached_function
 }
 
-# A helper function to execute a cached function call.
+## A helper function to execute a cached function call.
 execute <- function(fcn_call) {
-  # Grab the new/old keys
+  ## Grab the new/old keys
   keys <- fcn_call$call[[fcn_call$key]]
 
   if (fcn_call$force) {
@@ -328,13 +339,13 @@ execute <- function(fcn_call) {
   }
   remove_old_key(fcn_call$con, fcn_call$table, uncached_keys, fcn_call$output_key)
 
-  # If some keys were populated by another process, we will keep track of those
-  # so that we do not have to duplicate the caching effort.
+  ## If some keys were populated by another process, we will keep track of those
+  ## so that we do not have to duplicate the caching effort.
   intercepted_keys <- list2env(list(keys = integer(0)))
 
   compute_and_cache_data <- function(keys) {
-    # Re-query which keys are not cached, since someone else could have
-    # populated them in parallel (if another user requested the same IDs).
+    ## Re-query which keys are not cached, since someone else could have
+    ## populated them in parallel (if another user requested the same IDs).
     uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
     intercepted_keys$keys <- c(intercepted_keys$keys, setdiff(keys, uncached_keys))
     keys <- uncached_keys
@@ -359,9 +370,9 @@ execute <- function(fcn_call) {
     uncached_data <- compute_and_cache_data(uncached_keys)
   }
 
-  # Since computing and caching data may take a long time and some of the
-  # keys may have been populated by a different R process (in case of parallel)
-  # cache requests, we need to query *now* which keys are cached.
+  ## Since computing and caching data may take a long time and some of the
+  ## keys may have been populated by a different R process (in case of parallel)
+  ## cache requests, we need to query *now* which keys are cached.
   cached_keys <- Reduce(setdiff, list(keys, uncached_keys, intercepted_keys$keys))
   cached_data <- compute_cached_data(fcn_call, cached_keys)
 
@@ -404,7 +415,7 @@ cached_function_call <- function(fn, call, context, table, key, con, force, batc
 data_injector <- function(fcn_call, keys, cached) {
   if (length(keys) == 0) {
     return(data.frame())
-  } else if (cached) {
+  } else if (isTRUE(cached)) {
     data_injector_cached(fcn_call, keys)
   } else {
     data_injector_uncached(fcn_call, keys)
@@ -417,7 +428,18 @@ data_injector_uncached <- function(fcn_call, keys) {
 }
 
 data_injector_cached <- function(fcn_call, keys) {
-  sql <- paste("SELECT * FROM", fcn_call$table, "WHERE", fcn_call$output_key, "IN (",
+  ## Find all the shards that correspond to this function call
+  ## Read data from all the shards into a list. We will thus obtain a list of data frames.
+  ## Now we have to merge all the data.frames in the list into one and return.
+  ## Notice that these data frames have different column names (that's the whole point of
+  ## our columnar sharding), except for the key by which we query.
+  shards <- get_shards_for_tbl_name(fcn_call$table)
+  lst <- lapply(shards, function(shard) read_df_from_a_shard(fnc_call, keys, shard))
+  Reduce(function(...) merge(..., by = fcn_call$key, all = T), lst)
+}
+
+read_df_from_a_shard <- function(fcn_call, keys, shard) {
+  sql <- paste("SELECT * FROM", shard, "WHERE", fcn_call$output_key, "IN (",
                paste(sanitize_sql(keys), collapse = ', '), ")")
   db2df(dbGetQuery(fcn_call$con, sql),
         fcn_call$con, fcn_call$output_key)

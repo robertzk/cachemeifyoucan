@@ -16,7 +16,19 @@ table_name <- function(prefix, salt) {
 #' @param dbconn SQLConnection. A database connection.
 #' @importFrom DBI dbGetQuery
 column_names_map <- function(dbconn) {
-  DBI::dbGetQuery(dbconn, 'SELECT * FROM column_names')
+  DBI::dbGetQuery(dbconn, "SELECT * FROM column_names")
+}
+
+#' Fetch all the shards for the given table name.
+#'
+#' @name get_shards_for_table
+#' @param dbconn SQLConnection. A database connection.
+#' @param tbl_name character. The calculated table name for the function.
+#' @return one or many names of the shard tables.
+#' @importFrom DBI dbGetQuery
+#' @importFrom productivus pp
+get_shards_for_table <- function(dbconn, tbl_name) {
+  DBI::dbGetQuery(dbconn, pp("SELECT shard_name FROM table_shard_map where table_name='#{tbl_name}'"))
 }
 
 #' MD5 digest of column names.
@@ -266,8 +278,10 @@ get_new_key <- function(dbconn, tbl_name, ids, key) {
   if (length(ids) == 0) return(integer(0))
   if (!DBI::dbExistsTable(dbconn, tbl_name)) return(ids)
   id_column_name <- get_hashed_names(key)
+  shards <- get_shards_for_table(tbl_name)
+  if(is.null(shards)) return(integer(0))
   present_ids <- DBI::dbGetQuery(dbconn, paste0(
-    "SELECT ", id_column_name, " FROM ", tbl_name))
+    "SELECT ", id_column_name, " FROM ", shards[1]))
   # If the table is empty, a 0-by-0 dataframe will be returned, so
   # we must be careful.
   present_ids <- if (NROW(present_ids)) present_ids[[1]] else integer(0)
@@ -284,8 +298,8 @@ get_new_key <- function(dbconn, tbl_name, ids, key) {
 #' @importFrom DBI dbExistsTable
 #' @importFrom DBI dbSendQuery
 remove_old_key <- function(dbconn, tbl_name, ids, key) {
-  if (length(ids) == 0) return(NULL)
-  if (!DBI::dbExistsTable(dbconn, tbl_name)) return(NULL)
+  if (length(ids) == 0) return(invisible(NULL))
+  if (!DBI::dbExistsTable(dbconn, tbl_name)) return(invisible(NULL))
   id_column_name <- get_hashed_names(key)
   DBI::dbSendQuery(dbconn, paste0(
     "DELETE FROM ", tbl_name, " WHERE ", id_column_name, " IN (",
