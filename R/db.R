@@ -1,5 +1,5 @@
-#' Database table name for a given prefix and salt.
-#'
+## Database table name for a given prefix and salt.
+##
 #' @name table_name
 #' @param prefix character. Prefix.
 #' @param salt list. Salt for the table name.
@@ -10,8 +10,8 @@ table_name <- function(prefix, salt) {
   tolower(paste0(prefix, "_", digest::digest(salt)))
 }
 
-#' Fetch the map of column names.
-#'
+## Fetch the map of column names.
+##
 #' @name column_names_map
 #' @param dbconn SQLConnection. A database connection.
 #' @importFrom DBI dbGetQuery
@@ -19,8 +19,8 @@ column_names_map <- function(dbconn) {
   DBI::dbGetQuery(dbconn, "SELECT * FROM column_names")
 }
 
-#' Fetch all the shards for the given table name.
-#'
+## Fetch all the shards for the given table name.
+##
 #' @name get_shards_for_table
 #' @param dbconn SQLConnection. A database connection.
 #' @param tbl_name character. The calculated table name for the function.
@@ -31,8 +31,8 @@ get_shards_for_table <- function(dbconn, tbl_name) {
   DBI::dbGetQuery(dbconn, pp("SELECT shard_name FROM table_shard_map where table_name='#{tbl_name}'"))
 }
 
-#' MD5 digest of column names.
-#'
+## MD5 digest of column names.
+##
 #' @name get_hashed_names
 #' @param raw_names character. A character vector of column names.
 #' @importFrom digest digest
@@ -41,8 +41,8 @@ get_hashed_names <- function(raw_names) {
   paste0('c', vapply(raw_names, digest, character(1)))
 }
 
-#' Translate column names using the column_names table from MD5 to raw.
-#'
+## Translate column names using the column_names table from MD5 to raw.
+##
 #' @name translate_column_names
 #' @param names character. A character vector of column names.
 #' @param dbconn SQLConnection. A database connection.
@@ -52,8 +52,8 @@ translate_column_names <- function(names, dbconn) {
   vapply(names, function(name) name_map[[name]] %||% name, character(1))
 }
 
-#' Convert the raw fetched database table to a readable data frame.
-#'
+## Convert the raw fetched database table to a readable data frame.
+##
 #' @name db2df
 #' @param df. Raw fetched database table.
 #' @param dbconn SQLConnection. A database connection.
@@ -64,8 +64,8 @@ db2df <- function(df, dbconn, key) {
   df
 }
 
-#' Fetch the data frame from database conditioned on a key.
-#'
+## Fetch the data frame from database conditioned on a key.
+##
 #' @name read_data
 #' @param dbconn SQLConnection. A database connection.
 #' @param tblname character. Database table name.
@@ -81,8 +81,8 @@ read_data <- function(dbconn, tblname, ids, key) {
   df[df[[id_col]] == ids, , drop = FALSE]
 }
 
-#' Try and check dbWriteTable until success
-#'
+## Try and check dbWriteTable until success
+##
 #' @name dbWriteTableUntilSuccess
 #' @param dbconn SQLConnection. A database connection.
 #' @param tblname character. Database table name.
@@ -101,25 +101,25 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
   }
 }
 
-#' Helper utility for safe IO of a data.frame to a database connection.
-#'
-#' This function will be mindful of two problems: non-existent columns
-#' and long column names.
-#'
-#' Since this is meant to be used as a helper function for caching
-#' data, we must take a few precautions. If certain variables are not
-#' available for older data but are introduced for newer data, we
-#' must be careful to create those columns first.
-#'
-#' Furthermore, certain column names may be longer than PostgreSQL supports.
-#' To circumvent this problem, this helper function stores an MD5
-#' digest of each column name and maps them using the `column_names`
-#' helper table.
-#'
-#' By default, this function assumes any data to be written is not
-#' already present in the table and should be appended. If the table does
-#' not exist, it will be created.
-#'
+## Helper utility for safe IO of a data.frame to a database connection.
+##
+## This function will be mindful of two problems: non-existent columns
+## and long column names.
+##
+## Since this is meant to be used as a helper function for caching
+## data, we must take a few precautions. If certain variables are not
+## available for older data but are introduced for newer data, we
+## must be careful to create those columns first.
+##
+## Furthermore, certain column names may be longer than PostgreSQL supports.
+## To circumvent this problem, this helper function stores an MD5
+## digest of each column name and maps them using the `column_names`
+## helper table.
+##
+## By default, this function assumes any data to be written is not
+## already present in the table and should be appended. If the table does
+## not exist, it will be created.
+##
 #' @name write_data_safely
 #' @param dbconn PostgreSQLConnection. The database connection.
 #' @param tblname character. The table name to write the data into.
