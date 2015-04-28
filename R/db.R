@@ -103,8 +103,8 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
 
 ## Helper utility for safe IO of a data.frame to a database connection.
 ##
-## This function will be mindful of two problems: non-existent columns
-## and long column names.
+## This function will be mindful of three problems: non-existent columns,
+## long column names, and sharding *data.frame*s with too many columns.
 ##
 ## Since this is meant to be used as a helper function for caching
 ## data, we must take a few precautions. If certain variables are not
@@ -143,14 +143,13 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     column_map <- data.frame(raw_name = raw_names, hashed_name = hashed_names)
     column_map <- column_map[!duplicated(column_map), ]
 
-    # If we don't do this, we will get really weird bugs with numeric things stored as character
-    # For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
+    ## If we don't do this, we will get really weird bugs with numeric things stored as character
+    ## For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
     old_options <- options(scipen = 20, digits = 20)
     on.exit(options(old_options))
 
-    # Store the map of raw to MD5'ed column names in the column_names table.
+    ## Store the map of raw to MD5'ed column names in the column_names table.
     if (!DBI::dbExistsTable(dbconn, 'column_names'))
-      #dbWriteTable(dbconn, 'column_names', column_map, row.names = 0)
       dbWriteTableUntilSuccess(dbconn, 'column_names', column_map)
     else {
       raw_names <- DBI::dbGetQuery(dbconn, 'SELECT raw_name FROM column_names')[[1]]
@@ -162,33 +161,37 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     TRUE
   }
 
+  create_shards <- function(df, tblname) {
+    # modify this to create table_shard_map
+    # DBI::dbGetQuery(dbconn, pp("SELECT shard_name FROM table_shard_map where table_name='#{tbl_name}'"))
+  }
+
   write_column_hashed_data <- function(df, append = TRUE) {
     write_column_names_map(colnames(df))
 
-    # Store a copy of the ID columns (ending with '_id')
+    ## Store a copy of the ID columns (ending with '_id')
     id_cols_ix <- which(is.element(colnames(df), id_cols))
     colnames(df) <- get_hashed_names(colnames(df))
     df[, id_cols] <- df[, id_cols_ix]
 
-    # Convert some types to character so they go in the DB properly.
+    ## Convert some types to character so they go in the DB properly.
     to_chars <- unname(vapply(df, function(x) is.factor(x) || is.ordered(x) || is.logical(x), logical(1)))
     df[to_chars] <- lapply(df[to_chars], as.character)
 
-    # dbWriteTable(dbconn, tblname, df, row.names = 0, append = TRUE)
-    # Believe it or not, the above does not work! RPostgreSQL seems to have a
-    # bug that incorrectly serializes some kinds of data into the database.
-    # Thus we must roll up our sleeves and write our own INSERT query. :-(
+    ## dbWriteTable(dbconn, tblname, df, row.names = 0, append = TRUE)
+    ## Believe it or not, the above does not work! RPostgreSQL seems to have a
+    ## bug that incorrectly serializes some kinds of data into the database.
+    ## Thus we must roll up our sleeves and write our own INSERT query. :-(
     number_of_records_per_insert_query <- 250
     slices <- slice(seq_len(nrow(df)), number_of_records_per_insert_query)
 
-    # If we don't do this, we will get really weird bugs with numeric things stored as character
-    # For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
+    ## If we don't do this, we will get really weird bugs with numeric things stored as character
+    ## For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
     old_options <- options(scipen = 20, digits = 20)
     on.exit(options(old_options))
 
     for (slice in slices) {
       if (!append)  {
-        #dbWriteTable(dbconn, tblname, df[slice, , drop = FALSE], append = append, row.names = 0)
         dbWriteTableUntilSuccess(dbconn, tblname, df)
         append <- TRUE
       } else {
