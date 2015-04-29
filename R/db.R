@@ -1,5 +1,5 @@
-## Database table name for a given prefix and salt.
-##
+#' Database table name for a given prefix and salt.
+#'
 #' @name table_name
 #' @param prefix character. Prefix.
 #' @param salt list. Salt for the table name.
@@ -10,8 +10,8 @@ table_name <- function(prefix, salt) {
   tolower(paste0(prefix, "_", digest::digest(salt)))
 }
 
-## Fetch the map of column names.
-##
+#' Fetch the map of column names.
+#'
 #' @name column_names_map
 #' @param dbconn SQLConnection. A database connection.
 #' @importFrom DBI dbGetQuery
@@ -19,20 +19,19 @@ column_names_map <- function(dbconn) {
   DBI::dbGetQuery(dbconn, "SELECT * FROM column_names")
 }
 
-## Fetch all the shards for the given table name.
-##
+#' Fetch all the shards for the given table name.
+#'
 #' @name get_shards_for_table
 #' @param dbconn SQLConnection. A database connection.
 #' @param tbl_name character. The calculated table name for the function.
 #' @return one or many names of the shard tables.
 #' @importFrom DBI dbGetQuery
-#' @importFrom productivus pp
 get_shards_for_table <- function(dbconn, tbl_name) {
-  DBI::dbGetQuery(dbconn, pp("SELECT shard_name FROM table_shard_map where table_name='#{tbl_name}'"))
+  DBI::dbGetQuery(dbconn, paste0("SELECT shard_name FROM table_shard_map where table_name='", tbl_name, "'"))
 }
 
-## MD5 digest of column names.
-##
+#' MD5 digest of column names.
+#'
 #' @name get_hashed_names
 #' @param raw_names character. A character vector of column names.
 #' @importFrom digest digest
@@ -41,8 +40,8 @@ get_hashed_names <- function(raw_names) {
   paste0('c', vapply(raw_names, digest, character(1)))
 }
 
-## Translate column names using the column_names table from MD5 to raw.
-##
+#' Translate column names using the column_names table from MD5 to raw.
+#'
 #' @name translate_column_names
 #' @param names character. A character vector of column names.
 #' @param dbconn SQLConnection. A database connection.
@@ -52,8 +51,8 @@ translate_column_names <- function(names, dbconn) {
   vapply(names, function(name) name_map[[name]] %||% name, character(1))
 }
 
-## Convert the raw fetched database table to a readable data frame.
-##
+#' Convert the raw fetched database table to a readable data frame.
+#'
 #' @name db2df
 #' @param df. Raw fetched database table.
 #' @param dbconn SQLConnection. A database connection.
@@ -64,8 +63,8 @@ db2df <- function(df, dbconn, key) {
   df
 }
 
-## Fetch the data frame from database conditioned on a key.
-##
+#' Fetch the data frame from database conditioned on a key.
+#'
 #' @name read_data
 #' @param dbconn SQLConnection. A database connection.
 #' @param tblname character. Database table name.
@@ -81,8 +80,8 @@ read_data <- function(dbconn, tblname, ids, key) {
   df[df[[id_col]] == ids, , drop = FALSE]
 }
 
-## Try and check dbWriteTable until success
-##
+#' Try and check dbWriteTable until success
+#'
 #' @name dbWriteTableUntilSuccess
 #' @param dbconn SQLConnection. A database connection.
 #' @param tblname character. Database table name.
@@ -120,6 +119,8 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
 ## already present in the table and should be appended. If the table does
 ## not exist, it will be created.
 ##
+#' Write data.frames to DB addressing pitfalls
+#'
 #' @name write_data_safely
 #' @param dbconn PostgreSQLConnection. The database connection.
 #' @param tblname character. The table name to write the data into.
@@ -171,7 +172,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     ## | 1 | tblname_1   | shard_1     |
     ## | 2 | tblname_1   | shard_2     |
     ## | 3 | tblname_2   | shard_3     |
-    table_shard_map <- data.frame(table_name = rep(tblname, length(shards)), shard_name = shard_names)
+    table_shard_map <- data.frame(table_name = rep(tblname, length(shard_names)), shard_name = shard_names)
     ## If we don't do this, we will get really weird bugs with numeric things stored as character
     ## For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
     old_options <- options(scipen = 20, digits = 20)
@@ -187,7 +188,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
         dbWriteTable(dbconn, 'table_shard_map', table_shard_map, append = TRUE, row.names = 0)
       }
     }
-    TRUE
+    TRUE #BUGGED FUCK
   }
 
   get_shard_names <- function(df, tblname) {
@@ -199,16 +200,9 @@ write_data_safely <- function(dbconn, tblname, df, key) {
   }
 
   df2shards <- function(df, shard_names) {
-    if (length(shard_names) == 1) return(list(df = df, shard_name = shard_names)
-    # df_cols <- colnames(df)
-    # shard_columns <- lapply(shard_names, function(shard) {
-    #   onerow <- DBI::dbGetQuery(dbconn, paste("SELECT * FROM ", shard, " LIMIT 1"))
-    #   if (NROW(onerow) == 0) {
-    #     ## the table is empty!
-    #     DBI::dbRemoveTable(dbconn, shard)
-    #   }
-    #   available_columns <- colnames(onerow)
-    # })
+    if (length(shard_names) == 1) {
+      return(list(list(df = df, shard_name = shard_names)))
+    }
   }
 
   write_column_hashed_data <- function(df, tblname, append = TRUE) {
@@ -338,10 +332,10 @@ build_insert_query <- function(tblname, df) {
 #' @importFrom DBI dbGetQuery
 get_new_key <- function(dbconn, tbl_name, ids, key) {
   if (length(ids) == 0) return(integer(0))
-  if (!DBI::dbExistsTable(dbconn, tbl_name)) return(ids)
-  id_column_name <- get_hashed_names(key)
-  shards <- get_shards_for_table(tbl_name)
+  shards <- get_shards_for_table(dbconn, tbl_name)[[1]]
   if(is.null(shards)) return(integer(0))
+  if (!DBI::dbExistsTable(dbconn, shards[1])) return(ids)
+  id_column_name <- get_hashed_names(key)
   ## We can check only the first shard because all shards have the same keys
   present_ids <- DBI::dbGetQuery(dbconn, paste0(
     "SELECT ", id_column_name, " FROM ", shards[1]))
@@ -364,7 +358,7 @@ remove_old_key <- function(dbconn, tbl_name, ids, key) {
   if (length(ids) == 0) return(invisible(NULL))
   if (!DBI::dbExistsTable(dbconn, tbl_name)) return(invisible(NULL))
   id_column_name <- get_hashed_names(key)
-  shards <- get_shards_for_table(tbl_name)
+  shards <- get_shards_for_table(dbconn, tbl_name)
   ## In this case though, we need to delete from all shards to keep them consistent
   sapply(shards, function(shard) {
     DBI::dbSendQuery(dbconn, paste0(

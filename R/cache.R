@@ -281,7 +281,7 @@ build_cached_function <- function(cached_function) {
     ## Strip function name but retain arguments.
     call     <- as.list(raw_call[-1])
     ## Strip away the force. parameter, which is reserved.
-    is_force <- call$force.
+    is_force <- eval.parent(call$force.)
     call$force. <- NULL
 
     ## Evaluate function call parameters in the calling environment
@@ -433,8 +433,8 @@ data_injector_cached <- function(fcn_call, keys) {
   ## Now we have to merge all the data.frames in the list into one and return.
   ## Notice that these data frames have different column names (that's the whole point of
   ## our columnar sharding), except for the key by which we query.
-  shards <- get_shards_for_table(fcn_call$table)
-  lst <- lapply(shards, function(shard) read_df_from_a_shard(fnc_call, keys, shard))
+  shards <- get_shards_for_table(fcn_call$con, fcn_call$table)[[1]]
+  lst <- lapply(shards, function(shard) read_df_from_a_shard(fcn_call, keys, shard))
   Reduce(function(...) merge(..., by = fcn_call$key, all = T), lst)
 }
 
