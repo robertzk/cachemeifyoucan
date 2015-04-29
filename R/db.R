@@ -191,9 +191,10 @@ write_data_safely <- function(dbconn, tblname, df, key) {
   }
 
   get_shard_names <- function(df, tblname) {
-    # modify this to create table_shard_map
-    # DBI::dbGetQuery(dbconn, pp("SELECT shard_name FROM table_shard_map where table_name='#{tbl_name}'"))
-    
+    numcols <- NCOL(df)
+    if (numcols == 0) return(FALSE)
+    numshards <- ceiling(numcols / MAX_COLUMNS_PER_SHARD)
+    shardnames <- paste0(tblname, "_shard", seq(numshards))
   }
 
   write_column_hashed_data <- function(df, append = TRUE) {

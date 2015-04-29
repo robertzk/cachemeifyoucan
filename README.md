@@ -37,7 +37,7 @@ if (!require("devtools")) install.packages("devtools")
 devtools::install_github("robertzk/cachemeifyoucan")
 ```
 
-When using the database caching features, you will need to setup a 
+When using the database caching features, you will need to setup a
 `database.yml` file (I am working on writing up how to do this).
 
 # Adapters
@@ -46,6 +46,9 @@ It will be possible to specify arbitrary caching backends: a database,
 S3, a flat file. For more complex strategies, it will be a little bit of work
 to set up the correct caching call, but the resulting performance
 benefits should be worth it.
+
+For now cachemeifyoucan works with PostgreSQL and MonetDB, but it's primarily
+optimized for the former.
 
 # Testing
 
