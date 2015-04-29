@@ -194,10 +194,25 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     numcols <- NCOL(df)
     if (numcols == 0) return(FALSE)
     numshards <- ceiling(numcols / MAX_COLUMNS_PER_SHARD)
-    shardnames <- paste0(tblname, "_shard", seq(numshards))
+    ## All data-containing tables will end with prefix *_shard#{n}*
+    paste0(tblname, "_shard", seq(numshards))
   }
 
-  write_column_hashed_data <- function(df, append = TRUE) {
+  df2shards <- function(df, shard_names) {
+    if (length(shard_names) == 1) return(list(df = df, shard_name = shard_names)
+    # df_cols <- colnames(df)
+    # shard_columns <- lapply(shard_names, function(shard) {
+    #   onerow <- DBI::dbGetQuery(dbconn, paste("SELECT * FROM ", shard, " LIMIT 1"))
+    #   if (NROW(onerow) == 0) {
+    #     ## the table is empty!
+    #     DBI::dbRemoveTable(dbconn, shard)
+    #   }
+    #   available_columns <- colnames(onerow)
+    # })
+  }
+
+  write_column_hashed_data <- function(df, tblname, append = TRUE) {
+    ## Create the mapping between original column names and their MD5 companions
     write_column_names_map(colnames(df))
 
     ## Store a copy of the ID columns (ending with '_id')
@@ -210,7 +225,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     df[to_chars] <- lapply(df[to_chars], as.character)
 
     ## dbWriteTable(dbconn, tblname, df, row.names = 0, append = TRUE)
-
+    ##
     ## Believe it or not, the above does not work! RPostgreSQL seems to have a
     ## bug that incorrectly serializes some kinds of data into the database.
     ## Thus we must roll up our sleeves and write our own INSERT query. :-(
@@ -236,45 +251,57 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     }}
   }
 
-  if (!DBI::dbExistsTable(dbconn, tblname))
-    return(write_column_hashed_data(df, append = FALSE))
+  ## Find the appropriate shards for this dataframe and tablename
+  shard_names <- get_shard_names(df, tblname)
+  ## Create references for these shards if needed
+  write_table_shard_map(tblname, shard_names)
+  ## Split the dataframe into the appropriate shards
+  df_shard_map <- df2shards(df, shard_names)
 
-  one_row <- DBI::dbGetQuery(dbconn, paste("SELECT * FROM ", tblname, " LIMIT 1"))
-  if (nrow(one_row) == 0) {
-    dbRemoveTable(dbconn, tblname)
-    return(write_column_hashed_data(df, append = FALSE))
-  }
+  lapply(df_shard_map, function(lst) {
+    tblname <- lst$shard_name
+    df <- lst$df
+    if (!DBI::dbExistsTable(dbconn, tblname))
+      return(write_column_hashed_data(df, tblname, append = FALSE))
 
-  # Columns that are missing in database need to be created
-  new_names <- get_hashed_names(colnames(df))
-  # We also keep non-hashed versions of ID columns around for convenience.
-  new_names <- c(new_names, id_cols)
-  missing_cols <- !is.element(new_names, colnames(one_row))
-  # TODO: (RK) Check reverse, that we're not missing any already-present columns
-  class_map <- list(integer = 'real', numeric = 'real', factor = 'text',
-                    double = 'real', character = 'text', logical = 'text')
-  removes <- integer(0)
-  for (index in which(missing_cols)) {
-    col <- new_names[index]
-    if (!all(vapply(col, nchar, integer(1)) > 0))
-      stop("Failed to retrieve MD5 hashed column names in write_data_safely")
-    # TODO: (RK) Figure out how to filter all NA columns without wrecking
-    # the tables.
-    if (index > length(df)) index <- col
-    sql <- paste0("ALTER TABLE ", tblname, " ADD COLUMN ",
-                     col, " ", class_map[[class(df[[index]])[1]]])
-    suppressWarnings(DBI::dbGetQuery(dbconn, sql))
-  }
+    one_row <- DBI::dbGetQuery(dbconn, paste("SELECT * FROM ", tblname, " LIMIT 1"))
+    if (nrow(one_row) == 0) {
+      DBI::dbRemoveTable(dbconn, tblname)
+      return(write_column_hashed_data(df, tblname, append = FALSE))
+    }
 
-  # Columns that are missing in data need to be set to NA
-  missing_cols <- !is.element(colnames(one_row), new_names)
-  if (sum(missing_cols) > 0) {
-    raw_names <- translate_column_names(colnames(one_row)[missing_cols], dbconn)
-    stopifnot(is.character(raw_names))
-    df[, raw_names] <- lapply(sapply(one_row[, missing_cols], class), as, object = NA)
-  }
+    # Columns that are missing in database need to be created
+    new_names <- get_hashed_names(colnames(df))
+    # We also keep non-hashed versions of ID columns around for convenience.
+    new_names <- c(new_names, id_cols)
+    missing_cols <- !is.element(new_names, colnames(one_row))
+    # TODO: (RK) Check reverse, that we're not missing any already-present columns
+    class_map <- list(integer = 'real', numeric = 'real', factor = 'text',
+                      double = 'real', character = 'text', logical = 'text')
+    removes <- integer(0)
+    for (index in which(missing_cols)) {
+      col <- new_names[index]
+      if (!all(vapply(col, nchar, integer(1)) > 0))
+        stop("Failed to retrieve MD5 hashed column names in write_data_safely")
+      # TODO: (RK) Figure out how to filter all NA columns without wrecking
+      # the tables.
+      if (index > length(df)) index <- col
+      sql <- paste0("ALTER TABLE ", tblname, " ADD COLUMN ",
+                       col, " ", class_map[[class(df[[index]])[1]]])
+      suppressWarnings(DBI::dbGetQuery(dbconn, sql))
+    }
 
-  write_column_hashed_data(df)
+    # Columns that are missing in data need to be set to NA
+    missing_cols <- !is.element(colnames(one_row), new_names)
+    if (sum(missing_cols) > 0) {
+      raw_names <- translate_column_names(colnames(one_row)[missing_cols], dbconn)
+      stopifnot(is.character(raw_names))
+      df[, raw_names] <- lapply(sapply(one_row[, missing_cols], class), as, object = NA)
+    }
+
+    write_column_hashed_data(df, tblname)
+  })
+  invisible(TRUE)
 }
 
 #' Build an INSERT query for RPostgreSQL.
