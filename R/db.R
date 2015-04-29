@@ -27,7 +27,8 @@ column_names_map <- function(dbconn) {
 #' @return one or many names of the shard tables.
 #' @importFrom DBI dbGetQuery
 get_shards_for_table <- function(dbconn, tbl_name) {
-  if (!DBI::dbExistsTable('table_shard_map')) create_table(dbconn, 'table_shard_map')
+  browser()
+  if (!DBI::dbExistsTable(dbconn, 'table_shard_map')) create_shards_table(dbconn, 'table_shard_map')
   DBI::dbGetQuery(dbconn, paste0("SELECT shard_name FROM table_shard_map where table_name='", tbl_name, "'"))
 }
 
@@ -38,9 +39,9 @@ get_shards_for_table <- function(dbconn, tbl_name) {
 #' @param tblname character.The table to be created
 #' @importFrom DBI dbGetQuery
 #' @importFrom productivus pp
-create_table <- function(dbconn, tblname) {
-  if (DBI::dbExistsTable(tblname)) return(TRUE)
-  sql <- pp("CREATE TABLE #{tblname} (table_name)")
+create_shards_table <- function(dbconn, tblname) {
+  if (DBI::dbExistsTable(dbconn, tblname)) return(TRUE)
+  sql <- pp("CREATE TABLE #{tblname} (table_name varchar(255) NOT NULL, shard_name varchar(255) NOT NULL);")
   DBI::dbGetQuery(dbconn, sql)
   TRUE
 }
@@ -349,7 +350,7 @@ build_insert_query <- function(tblname, df) {
 get_new_key <- function(dbconn, tbl_name, ids, key) {
   if (length(ids) == 0) return(integer(0))
   shards <- get_shards_for_table(dbconn, tbl_name)
-  if(is.null(shards)) {
+  if(NROW(shards) == 0) {
     return(integer(0))
   } else {
     shards <- shards[[1]]
@@ -380,7 +381,7 @@ remove_old_key <- function(dbconn, tbl_name, ids, key) {
   if (!DBI::dbExistsTable(dbconn, tbl_name)) return(invisible(NULL))
   id_column_name <- get_hashed_names(key)
   shards <- get_shards_for_table(dbconn, tbl_name)
-  if(is.null(shards)) return(invisible(NULL))
+  if(NROW(shards) == 0) return(invisible(NULL))
   ## In this case though, we need to delete from all shards to keep them consistent
   sapply(shards, function(shard) {
     DBI::dbSendQuery(dbconn, paste0(
