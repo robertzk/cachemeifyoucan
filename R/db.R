@@ -125,6 +125,7 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
 #' @param tblname character. The table name to write the data into.
 #' @param df data.frame. The data to write.
 #' @param key character. The identifier column name.
+#' @importFrom productivus pp
 write_data_safely <- function(dbconn, tblname, df, key) {
   if (is.null(df)) return(FALSE)
   if (!is.data.frame(df)) return(FALSE)
@@ -161,9 +162,38 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     TRUE
   }
 
-  create_shards <- function(df, tblname) {
+  ## Input: table name and calculated shard names
+  write_table_shard_map <- function(tblname, shard_names) {
+    ## Example:
+    ##
+    ## |   | table_name  | shard_name  |
+    ## |---|-------------|-------------|
+    ## | 1 | tblname_1   | shard_1     |
+    ## | 2 | tblname_1   | shard_2     |
+    ## | 3 | tblname_2   | shard_3     |
+    table_shard_map <- data.frame(table_name = rep(tblname, length(shards)), shard_name = shard_names)
+    ## If we don't do this, we will get really weird bugs with numeric things stored as character
+    ## For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
+    old_options <- options(scipen = 20, digits = 20)
+    on.exit(options(old_options))
+
+    ## Store the map of logical table names to physical shards in the table_shard_map table.
+    if (!DBI::dbExistsTable(dbconn, 'table_shard_map'))
+      dbWriteTableUntilSuccess(dbconn, 'table_shard_map', table_shard_map)
+    else {
+      shards <- DBI::dbGetQuery(dbconn, pp("SELECT shard_name FROM table_shard_map WHERE table_name='#{tblname}'"))[[1]]
+      table_shard_map <- table_shard_map[table_shard_map$shard_name %in% shards,]
+      if (NROW(table_shard_map) > 0) {
+        dbWriteTable(dbconn, 'table_shard_map', table_shard_map, append = TRUE, row.names = 0)
+      }
+    }
+    TRUE
+  }
+
+  get_shard_names <- function(df, tblname) {
     # modify this to create table_shard_map
     # DBI::dbGetQuery(dbconn, pp("SELECT shard_name FROM table_shard_map where table_name='#{tbl_name}'"))
+    
   }
 
   write_column_hashed_data <- function(df, append = TRUE) {
@@ -179,6 +209,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     df[to_chars] <- lapply(df[to_chars], as.character)
 
     ## dbWriteTable(dbconn, tblname, df, row.names = 0, append = TRUE)
+
     ## Believe it or not, the above does not work! RPostgreSQL seems to have a
     ## bug that incorrectly serializes some kinds of data into the database.
     ## Thus we must roll up our sleeves and write our own INSERT query. :-(
