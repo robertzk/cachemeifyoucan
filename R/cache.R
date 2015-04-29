@@ -346,6 +346,7 @@ execute <- function(fcn_call) {
   compute_and_cache_data <- function(keys) {
     ## Re-query which keys are not cached, since someone else could have
     ## populated them in parallel (if another user requested the same IDs).
+    browser()
     uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
     intercepted_keys$keys <- c(intercepted_keys$keys, setdiff(keys, uncached_keys))
     keys <- uncached_keys
@@ -435,7 +436,7 @@ data_injector_cached <- function(fcn_call, keys) {
   ## our columnar sharding), except for the key by which we query.
   shards <- get_shards_for_table(fcn_call$con, fcn_call$table)[[1]]
   lst <- lapply(shards, function(shard) read_df_from_a_shard(fcn_call, keys, shard))
-  Reduce(function(...) merge(..., by = fcn_call$key, all = T), lst)
+  merge2(lst, fcn_call$key)
 }
 
 read_df_from_a_shard <- function(fcn_call, keys, shard) {

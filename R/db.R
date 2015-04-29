@@ -27,7 +27,22 @@ column_names_map <- function(dbconn) {
 #' @return one or many names of the shard tables.
 #' @importFrom DBI dbGetQuery
 get_shards_for_table <- function(dbconn, tbl_name) {
+  if (!DBI::dbExistsTable('table_shard_map')) create_table(dbconn, 'table_shard_map')
   DBI::dbGetQuery(dbconn, paste0("SELECT shard_name FROM table_shard_map where table_name='", tbl_name, "'"))
+}
+
+#' Fetch all the shards for the given table name.
+#'
+#' @name create_table
+#' @param dbconn SQLConnection. A database connection.
+#' @param tblname character.The table to be created
+#' @importFrom DBI dbGetQuery
+#' @importFrom productivus pp
+create_table <- function(dbconn, tblname) {
+  if (DBI::dbExistsTable(tblname)) return(TRUE)
+  sql <- pp("CREATE TABLE #{tblname} (table_name)")
+  DBI::dbGetQuery(dbconn, sql)
+  TRUE
 }
 
 #' MD5 digest of column names.
@@ -248,6 +263,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
   ## Find the appropriate shards for this dataframe and tablename
   shard_names <- get_shard_names(df, tblname)
   ## Create references for these shards if needed
+  browser()
   write_table_shard_map(tblname, shard_names)
   ## Split the dataframe into the appropriate shards
   df_shard_map <- df2shards(df, shard_names)
@@ -332,8 +348,12 @@ build_insert_query <- function(tblname, df) {
 #' @importFrom DBI dbGetQuery
 get_new_key <- function(dbconn, tbl_name, ids, key) {
   if (length(ids) == 0) return(integer(0))
-  shards <- get_shards_for_table(dbconn, tbl_name)[[1]]
-  if(is.null(shards)) return(integer(0))
+  shards <- get_shards_for_table(dbconn, tbl_name)
+  if(is.null(shards)) {
+    return(integer(0))
+  } else {
+    shards <- shards[[1]]
+  }
   if (!DBI::dbExistsTable(dbconn, shards[1])) return(ids)
   id_column_name <- get_hashed_names(key)
   ## We can check only the first shard because all shards have the same keys
@@ -341,6 +361,7 @@ get_new_key <- function(dbconn, tbl_name, ids, key) {
     "SELECT ", id_column_name, " FROM ", shards[1]))
   ## If the table is empty, a 0-by-0 dataframe will be returned, so
   ## we must be careful.
+  browser()
   present_ids <- if (NROW(present_ids)) present_ids[[1]] else integer(0)
   setdiff(ids, present_ids)
 }
@@ -359,6 +380,7 @@ remove_old_key <- function(dbconn, tbl_name, ids, key) {
   if (!DBI::dbExistsTable(dbconn, tbl_name)) return(invisible(NULL))
   id_column_name <- get_hashed_names(key)
   shards <- get_shards_for_table(dbconn, tbl_name)
+  if(is.null(shards)) return(invisible(NULL))
   ## In this case though, we need to delete from all shards to keep them consistent
   sapply(shards, function(shard) {
     DBI::dbSendQuery(dbconn, paste0(
