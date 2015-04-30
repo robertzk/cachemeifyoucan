@@ -27,7 +27,6 @@ column_names_map <- function(dbconn) {
 #' @return one or many names of the shard tables.
 #' @importFrom DBI dbGetQuery
 get_shards_for_table <- function(dbconn, tbl_name) {
-  browser()
   if (!DBI::dbExistsTable(dbconn, 'table_shard_map')) create_shards_table(dbconn, 'table_shard_map')
   DBI::dbGetQuery(dbconn, paste0("SELECT shard_name FROM table_shard_map where table_name='", tbl_name, "'"))
 }
@@ -198,13 +197,16 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     if (!DBI::dbExistsTable(dbconn, 'table_shard_map'))
       dbWriteTableUntilSuccess(dbconn, 'table_shard_map', table_shard_map)
     else {
-      shards <- DBI::dbGetQuery(dbconn, pp("SELECT shard_name FROM table_shard_map WHERE table_name='#{tblname}'"))[[1]]
-      table_shard_map <- table_shard_map[table_shard_map$shard_name %in% shards,]
+      shards <- DBI::dbGetQuery(dbconn, pp("SELECT shard_name FROM table_shard_map WHERE table_name='#{tblname}'"))
+      if (NROW(shards) > 0) {
+        shards <- shards[[1]]
+        table_shard_map <- table_shard_map[table_shard_map$shard_name %nin% shards,]
+      }
       if (NROW(table_shard_map) > 0) {
         dbWriteTable(dbconn, 'table_shard_map', table_shard_map, append = TRUE, row.names = 0)
       }
     }
-    TRUE #BUGGED FUCK
+    TRUE
   }
 
   get_shard_names <- function(df, tblname) {
@@ -264,7 +266,6 @@ write_data_safely <- function(dbconn, tblname, df, key) {
   ## Find the appropriate shards for this dataframe and tablename
   shard_names <- get_shard_names(df, tblname)
   ## Create references for these shards if needed
-  browser()
   write_table_shard_map(tblname, shard_names)
   ## Split the dataframe into the appropriate shards
   df_shard_map <- df2shards(df, shard_names)
@@ -350,8 +351,9 @@ build_insert_query <- function(tblname, df) {
 get_new_key <- function(dbconn, tbl_name, ids, key) {
   if (length(ids) == 0) return(integer(0))
   shards <- get_shards_for_table(dbconn, tbl_name)
+  ## If there are no existing shards - then nothing is cached yet
   if(NROW(shards) == 0) {
-    return(integer(0))
+    return(ids)
   } else {
     shards <- shards[[1]]
   }
@@ -362,7 +364,6 @@ get_new_key <- function(dbconn, tbl_name, ids, key) {
     "SELECT ", id_column_name, " FROM ", shards[1]))
   ## If the table is empty, a 0-by-0 dataframe will be returned, so
   ## we must be careful.
-  browser()
   present_ids <- if (NROW(present_ids)) present_ids[[1]] else integer(0)
   setdiff(ids, present_ids)
 }
