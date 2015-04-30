@@ -213,13 +213,18 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     numcols <- NCOL(df)
     if (numcols == 0) return(FALSE)
     numshards <- ceiling(numcols / MAX_COLUMNS_PER_SHARD)
-    ## All data-containing tables will end with prefix *_shard#{n}*
-    paste0(tblname, "_shard", seq(numshards))
+    ## All data-containing tables will start with prefix *shard#{n}_*
+    paste0("shard", seq(numshards), "_", digest::digest(tblname))
   }
 
   df2shards <- function(df, shard_names) {
     if (length(shard_names) == 1) {
       return(list(list(df = df, shard_name = shard_names)))
+    } else {
+      ## Here comes the hard part. Sharding strategies!
+      lapply(shard_names, function (shard) {
+
+      })
     }
   }
 

@@ -1,5 +1,5 @@
 cache:
   adapter: PostgreSQL
   dbname: travis
-  user: postgres
+  user: kirill
   password: ''
