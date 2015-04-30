@@ -217,15 +217,53 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     paste0("shard", seq(numshards), "_", digest::digest(tblname))
   }
 
-  df2shards <- function(df, shard_names) {
-    if (length(shard_names) == 1) {
-      return(list(list(df = df, shard_name = shard_names)))
-    } else {
-      ## Here comes the hard part. Sharding strategies!
-      lapply(shard_names, function (shard) {
+  df2shards <- function(dbconn, df, shard_names, key) {
+    ## Here comes the hard part. Sharding strategies!
+    ##
+    ## Here is how we're going to do it.
+    ## We sort the shardnames, to ensure that the first shard is the biggest in size
+    ## This way appending to a shard is trivial: if we have any columns in the
+    ## dataframe that are not yet stored in the cache - just append them to the
+    ## last shard!
+    ## Since we've done the calculation of number of shards beforehand we
+    ## don't even have to worry about creating new shards if something won't fit.
+    ##
+    ## Because it will.
 
-      })
-    }
+    ## Make sure we don't store `key` in the used_columns! Need it in every dataframe
+    used_columns <- c()
+    last <- shard_names[length(shard_names)]
+
+    lapply(sort(shard_names), function (shard, len, key) {
+      ## We need to create a map in the form of
+      ## ```list(df = dataframe, shard_name = shard_names)```, where the dataframe is a subset
+      ## of the original dataframe that contains less columns than
+      ## **MAX_COLUMNS_PER_SHARD**.
+      ## This is what we should do for each shard:
+      ##
+      ## 1. Determine which columns are already being stored in the shard
+      ## 2. Take the subset of the dataframe that has these columns, assign it to a shard
+      ## 3. See which columns are left unsaved, and add those to the last shard
+      if (shard == last) {
+        ## Write out the rest of the dataframe into the last shard
+        list(df = df[setdiff(colnames(df), used_columns)])
+      } else {
+        ## If the response is empty, write the first N columns of the dataframe
+        ## Othrwise, only write out those columns that already exist in this shard
+        one_row <- DBI::dbGetQuery(dbconn, paste("SELECT * FROM ", shard, " LIMIT 1"))
+        if (NROW(one_row) == 0) {
+          columns <- colnames(df)
+          columns <- columns[which(columns != key)]
+          columns <- columns[1:MAX_COLUMNS_PER_SHARD]
+          used_columns <- append(used_columns, columns[which(columns != key)])
+          list(df = df[columns], shard_name = shard)
+        } else {
+          columns <- unique(translate_column_names(colnames(one_row), dbconn))
+          used_columns <- append(used_columns, columns[which(columns != key)])
+          list(df = df[columns], shard_name = shard)
+        }
+      }
+    })
   }
 
   write_column_hashed_data <- function(df, tblname, append = TRUE) {
@@ -273,7 +311,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
   ## Create references for these shards if needed
   write_table_shard_map(tblname, shard_names)
   ## Split the dataframe into the appropriate shards
-  df_shard_map <- df2shards(df, shard_names)
+  df_shard_map <- df2shards(dbconn, df, shard_names, key)
 
   lapply(df_shard_map, function(lst) {
     tblname <- lst$shard_name
