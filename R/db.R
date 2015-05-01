@@ -85,7 +85,7 @@ db2df <- function(df, dbconn, key) {
 #' @param dbconn SQLConnection. A database connection.
 #' @param key. Identifier of database table.
 add_index <- function(dbconn, tblname, key, idx_name) {
-  DBI::dbSendQuery(db$con, pp('CREATE INDEX #{idx_name} ON #{tblname}(#{key})'))
+  DBI::dbSendQuery(dbconn, pp('CREATE INDEX #{idx_name} ON #{tblname}(#{key})'))
   TRUE
 }
 
@@ -356,7 +356,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     if (!DBI::dbExistsTable(dbconn, tblname)) {
       ## The { column => MD5(column) } map doesn't exist yet. Create it!
       write_column_hashed_data(df, tblname, append = FALSE)
-      add_index(dbconn, tblname, key, digest::digest(paste0("i",tblname)))
+      add_index(dbconn, tblname, key, paste0("idx_", digest::digest(tblname)))
       return(invisible(TRUE))
     }
 
