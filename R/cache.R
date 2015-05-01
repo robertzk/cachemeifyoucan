@@ -435,7 +435,6 @@ data_injector_cached <- function(fcn_call, keys) {
   ## our columnar sharding), except for the key by which we query.
   shards <- get_shards_for_table(fcn_call$con, fcn_call$table)[[1]]
   lst <- lapply(shards, function(shard) read_df_from_a_shard(fcn_call, keys, shard))
-  browser()
   merge2(lst, fcn_call$key)
 }
 
