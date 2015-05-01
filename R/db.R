@@ -78,6 +78,18 @@ db2df <- function(df, dbconn, key) {
   df
 }
 
+#' Create index on a table
+#'
+#' @name db2df
+#' @param df. Raw fetched database table.
+#' @param dbconn SQLConnection. A database connection.
+#' @param key. Identifier of database table.
+add_index <- function(dbconn, tblname, key, idx_name) {
+  DBI::dbSendQuery(db$con, pp('CREATE INDEX #{idx_name} ON #{tblname}(#{key})'))
+  TRUE
+}
+
+
 #' Fetch the data frame from database conditioned on a key.
 #'
 #' @name read_data
@@ -343,15 +355,19 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     df <- lst$df
     if (!DBI::dbExistsTable(dbconn, tblname)) {
       ## The { column => MD5(column) } map doesn't exist yet. Create it!
-      return(write_column_hashed_data(df, tblname, append = FALSE))
+      write_column_hashed_data(df, tblname, append = FALSE)
+      add_index(dbconn, tblname, key, digest::digest(paste0("i",tblname)))
+      return(invisible(TRUE))
     }
 
     one_row <- DBI::dbGetQuery(dbconn, paste("SELECT * FROM ", tblname, " LIMIT 1"))
-    if (nrow(one_row) == 0) {
+    if (NROW(one_row) == 0) {
       ## The shard is empty! Delete it and write to it, finally
       ## Also, it's a great opportunity to enforce indexes on this table!
       DBI::dbRemoveTable(dbconn, tblname)
-      return(write_column_hashed_data(df, tblname, append = FALSE))
+      write_column_hashed_data(df, tblname, append = FALSE)
+      add_index(dbconn, tblname, key, digest::digest(paste0("i",tblname)))
+      return(invisible(TRUE))
     }
 
     ## Columns that are missing in database need to be created
