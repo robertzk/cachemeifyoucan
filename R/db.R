@@ -210,11 +210,25 @@ write_data_safely <- function(dbconn, tblname, df, key) {
   }
 
   get_shard_names <- function(df, tblname) {
+    ## Two cases: the shards already exist - or they don't
+    ##
+    ## Fetch existing shards
+    shards <- c()
+    if (DBI::dbExistsTable(dbconn, 'table_shard_map')) {
+      shards <- DBI::dbGetQuery(dbconn, pp("SELECT shard_name FROM table_shard_map WHERE table_name='#{tblname}'"))
+      if (NROW(shards) > 0) {
+        shards <- shards[[1]]
+      }
+    }
+    ## come up with new shards if needed
     numcols <- NCOL(df)
-    if (numcols == 0) return(FALSE)
+    if (numcols == 0) return(NULL)
     numshards <- ceiling(numcols / MAX_COLUMNS_PER_SHARD)
     ## All data-containing tables will start with prefix *shard#{n}_*
-    paste0("shard", seq(numshards), "_", digest::digest(tblname))
+    newshards <- paste0("shard", seq(numshards), "_", digest::digest(tblname))
+    if (NROW(shards) > 0) {
+      unique(c(shards, newshards))
+    } else newshards
   }
 
   df2shards <- function(dbconn, df, shard_names, key) {
@@ -232,7 +246,6 @@ write_data_safely <- function(dbconn, tblname, df, key) {
 
     ## Make sure we don't store `key` in the used_columns! Need it in every dataframe
     used_columns <- c()
-    # last <- shard_names[length(shard_names)]
 
     lapply(sort(shard_names), function (shard, last, key) {
       ## We need to create a map in the form of
@@ -271,7 +284,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
         } else {
           columns <- unique(translate_column_names(colnames(one_row), dbconn))
           used_columns <<- append(used_columns, columns[which(columns != key)])
-          list(df = df[columns], shard_name = shard)
+          list(df = df[which(colnames(df) %in% columns)], shard_name = shard)
         }
       }
     }, last = shard_names[length(shard_names)], key = key)
@@ -324,21 +337,26 @@ write_data_safely <- function(dbconn, tblname, df, key) {
   ## Split the dataframe into the appropriate shards
   df_shard_map <- df2shards(dbconn, df, shard_names, key)
 
+  ## Actually write the data to the database
   lapply(df_shard_map, function(lst) {
     tblname <- lst$shard_name
     df <- lst$df
-    if (!DBI::dbExistsTable(dbconn, tblname))
+    if (!DBI::dbExistsTable(dbconn, tblname)) {
+      ## The { column => MD5(column) } map doesn't exist yet. Create it!
       return(write_column_hashed_data(df, tblname, append = FALSE))
+    }
 
     one_row <- DBI::dbGetQuery(dbconn, paste("SELECT * FROM ", tblname, " LIMIT 1"))
     if (nrow(one_row) == 0) {
+      ## The shard is empty! Delete it and write to it, finally
+      ## Also, it's a great opportunity to enforce indexes on this table!
       DBI::dbRemoveTable(dbconn, tblname)
       return(write_column_hashed_data(df, tblname, append = FALSE))
     }
 
-    # Columns that are missing in database need to be created
+    ## Columns that are missing in database need to be created
     new_names <- get_hashed_names(colnames(df))
-    # We also keep non-hashed versions of ID columns around for convenience.
+    ## We also keep non-hashed versions of ID columns around for convenience.
     new_names <- c(new_names, id_cols)
     missing_cols <- !is.element(new_names, colnames(one_row))
     # TODO: (RK) Check reverse, that we're not missing any already-present columns
@@ -357,7 +375,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
       suppressWarnings(DBI::dbGetQuery(dbconn, sql))
     }
 
-    # Columns that are missing in data need to be set to NA
+    ## Columns that are missing in data need to be set to NA
     missing_cols <- !is.element(colnames(one_row), new_names)
     if (sum(missing_cols) > 0) {
       raw_names <- translate_column_names(colnames(one_row)[missing_cols], dbconn)
@@ -487,7 +505,7 @@ db_connection <- function(database.yml, env = "cache",
   } else if (missing(env) && length(config.database) == 1) {
     config.database <- config.database[[1]]
   }
-  # Authorization arguments needed by the DBMS instance
+  ## Authorization arguments needed by the DBMS instance
   # TODO: (RK) Inform user if they forgot database.yml entries.
   do.call(DBI::dbConnect, append(list(drv = DBI::dbDriver(config.database$adapter)),
     config.database[!names(config.database) %in% "adapter"]))
@@ -506,7 +524,6 @@ build_connection <- function(con, env) {
   } else if (is.function(con)) {
     return(con())
   } else if (length(grep("SQLConnection", class(con)[1])) > 0) {
-    #print("Connection is already established")
     return(con)
   } else {
     stop("Invalid connection setup")
