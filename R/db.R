@@ -350,6 +350,8 @@ write_data_safely <- function(dbconn, tblname, df, key) {
   df_shard_map <- df2shards(dbconn, df, shard_names, key)
 
   ## Actually write the data to the database
+  ## Use transactions!
+  DBI::dbGetQuery(dbconn, "BEGIN")
   lapply(df_shard_map, function(lst) {
     tblname <- lst$shard_name
     df <- lst$df
@@ -401,6 +403,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
 
     write_column_hashed_data(df, tblname)
   })
+  DBI::dbCommit(dbconn)
   invisible(TRUE)
 }
 
