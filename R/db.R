@@ -232,9 +232,9 @@ write_data_safely <- function(dbconn, tblname, df, key) {
 
     ## Make sure we don't store `key` in the used_columns! Need it in every dataframe
     used_columns <- c()
-    last <- shard_names[length(shard_names)]
+    # last <- shard_names[length(shard_names)]
 
-    lapply(sort(shard_names), function (shard, len, key) {
+    lapply(sort(shard_names), function (shard, last, key) {
       ## We need to create a map in the form of
       ## ```list(df = dataframe, shard_name = shard_names)```, where the dataframe is a subset
       ## of the original dataframe that contains less columns than
@@ -246,24 +246,35 @@ write_data_safely <- function(dbconn, tblname, df, key) {
       ## 3. See which columns are left unsaved, and add those to the last shard
       if (shard == last) {
         ## Write out the rest of the dataframe into the last shard
-        list(df = df[setdiff(colnames(df), used_columns)])
+        list(df = df[setdiff(colnames(df), used_columns)], shard_name = shard)
       } else {
         ## If the response is empty, write the first N columns of the dataframe
         ## Othrwise, only write out those columns that already exist in this shard
-        one_row <- DBI::dbGetQuery(dbconn, paste("SELECT * FROM ", shard, " LIMIT 1"))
-        if (NROW(one_row) == 0) {
+        shard_exists <- DBI::dbExistsTable(dbconn, shard)
+        if (isTRUE(shard_exists)) {
+          one_row <- DBI::dbGetQuery(dbconn, paste("SELECT * FROM ", shard, " LIMIT 1"))
+        } else one_row <- NULL
+        ## Here we abuse the fact that ```NROW(NULL) == 0```
+        if (NROW(one_row) == 0 || NCOL(one_row) == 2) {
+          ## This is very hacky...
+          ## If we see only two columns in a shard, it means that we only stored
+          ## the id and the hashed id. So basically this shard is useless!
+          ## In this case we should drop it, and pretend this table doesn't exist
+          if (NCOL(one_row) == 2) {
+            DBI::dbSendQuery(dbconn, pp("DROP TABLE #{shard}"))
+          }
           columns <- colnames(df)
           columns <- columns[which(columns != key)]
-          columns <- columns[1:MAX_COLUMNS_PER_SHARD]
-          used_columns <- append(used_columns, columns[which(columns != key)])
+          columns <- c(columns[1:MAX_COLUMNS_PER_SHARD - 1], key)
+          used_columns <<- append(used_columns, columns[which(columns != key)])
           list(df = df[columns], shard_name = shard)
         } else {
           columns <- unique(translate_column_names(colnames(one_row), dbconn))
-          used_columns <- append(used_columns, columns[which(columns != key)])
+          used_columns <<- append(used_columns, columns[which(columns != key)])
           list(df = df[columns], shard_name = shard)
         }
       }
-    })
+    }, last = shard_names[length(shard_names)], key = key)
   }
 
   write_column_hashed_data <- function(df, tblname, append = TRUE) {
