@@ -154,6 +154,7 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
 #' @param df data.frame. The data to write.
 #' @param key character. The identifier column name.
 #' @importFrom productivus pp
+#' @importFrom DBI dbCommit dbRollback
 write_data_safely <- function(dbconn, tblname, df, key) {
   if (is.null(df)) return(FALSE)
   if (!is.data.frame(df)) return(FALSE)
@@ -342,68 +343,83 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     }}
   }
 
-  ## Find the appropriate shards for this dataframe and tablename
-  shard_names <- get_shard_names(df, tblname)
-  ## Create references for these shards if needed
-  write_table_shard_map(tblname, shard_names)
-  ## Split the dataframe into the appropriate shards
-  df_shard_map <- df2shards(dbconn, df, shard_names, key)
-
-  ## Actually write the data to the database
   ## Use transactions!
   DBI::dbGetQuery(dbconn, "BEGIN")
-  lapply(df_shard_map, function(lst) {
-    tblname <- lst$shard_name
-    df <- lst$df
-    if (!DBI::dbExistsTable(dbconn, tblname)) {
-      ## The { column => MD5(column) } map doesn't exist yet. Create it!
-      write_column_hashed_data(df, tblname, append = FALSE)
-      add_index(dbconn, tblname, key, paste0("idx_", digest::digest(tblname)))
-      return(invisible(TRUE))
-    }
+  tryCatch({
+    ## Find the appropriate shards for this dataframe and tablename
+    shard_names <- get_shard_names(df, tblname)
+    ## Create references for these shards if needed
+    write_table_shard_map(tblname, shard_names)
+    ## Split the dataframe into the appropriate shards
+    df_shard_map <- df2shards(dbconn, df, shard_names, key)
 
-    one_row <- DBI::dbGetQuery(dbconn, paste("SELECT * FROM ", tblname, " LIMIT 1"))
-    if (NROW(one_row) == 0) {
-      ## The shard is empty! Delete it and write to it, finally
-      ## Also, it's a great opportunity to enforce indexes on this table!
-      DBI::dbRemoveTable(dbconn, tblname)
-      write_column_hashed_data(df, tblname, append = FALSE)
-      add_index(dbconn, tblname, key, digest::digest(paste0("i",tblname)))
-      return(invisible(TRUE))
-    }
+    ## Actually write the data to the database
+    lapply(df_shard_map, function(lst) {
+      tblname <- lst$shard_name
+      df <- lst$df
+      if (!DBI::dbExistsTable(dbconn, tblname)) {
+        ## The { column => MD5(column) } map doesn't exist yet. Create it!
+        write_column_hashed_data(df, tblname, append = FALSE)
+        add_index(dbconn, tblname, key, paste0("idx_", digest::digest(tblname)))
+        return(invisible(TRUE))
+      }
 
-    ## Columns that are missing in database need to be created
-    new_names <- get_hashed_names(colnames(df))
-    ## We also keep non-hashed versions of ID columns around for convenience.
-    new_names <- c(new_names, id_cols)
-    missing_cols <- !is.element(new_names, colnames(one_row))
-    # TODO: (RK) Check reverse, that we're not missing any already-present columns
-    class_map <- list(integer = 'real', numeric = 'real', factor = 'text',
-                      double = 'real', character = 'text', logical = 'text')
-    removes <- integer(0)
-    for (index in which(missing_cols)) {
-      col <- new_names[index]
-      if (!all(vapply(col, nchar, integer(1)) > 0))
-        stop("Failed to retrieve MD5 hashed column names in write_data_safely")
-      # TODO: (RK) Figure out how to filter all NA columns without wrecking
-      # the tables.
-      if (index > length(df)) index <- col
-      sql <- paste0("ALTER TABLE ", tblname, " ADD COLUMN ",
-                       col, " ", class_map[[class(df[[index]])[1]]])
-      suppressWarnings(DBI::dbGetQuery(dbconn, sql))
-    }
+      one_row <- DBI::dbGetQuery(dbconn, paste("SELECT * FROM ", tblname, " LIMIT 1"))
+      if (NROW(one_row) == 0) {
+        ## The shard is empty! Delete it and write to it, finally
+        ## Also, it's a great opportunity to enforce indexes on this table!
+        DBI::dbRemoveTable(dbconn, tblname)
+        write_column_hashed_data(df, tblname, append = FALSE)
+        add_index(dbconn, tblname, key, digest::digest(paste0("i",tblname)))
+        return(invisible(TRUE))
+      }
 
-    ## Columns that are missing in data need to be set to NA
-    missing_cols <- !is.element(colnames(one_row), new_names)
-    if (sum(missing_cols) > 0) {
-      raw_names <- translate_column_names(colnames(one_row)[missing_cols], dbconn)
-      stopifnot(is.character(raw_names))
-      df[, raw_names] <- lapply(sapply(one_row[, missing_cols], class), as, object = NA)
-    }
+      ## Columns that are missing in database need to be created
+      new_names <- get_hashed_names(colnames(df))
+      ## We also keep non-hashed versions of ID columns around for convenience.
+      new_names <- c(new_names, id_cols)
+      missing_cols <- !is.element(new_names, colnames(one_row))
+      # TODO: (RK) Check reverse, that we're not missing any already-present columns
+      class_map <- list(integer = 'real', numeric = 'real', factor = 'text',
+                        double = 'real', character = 'text', logical = 'text')
+      removes <- integer(0)
+      for (index in which(missing_cols)) {
+        col <- new_names[index]
+        if (!all(vapply(col, nchar, integer(1)) > 0))
+          stop("Failed to retrieve MD5 hashed column names in write_data_safely")
+        # TODO: (RK) Figure out how to filter all NA columns without wrecking
+        # the tables.
+        if (index > length(df)) index <- col
+        sql <- paste0("ALTER TABLE ", tblname, " ADD COLUMN ",
+                         col, " ", class_map[[class(df[[index]])[1]]])
+        suppressWarnings(DBI::dbGetQuery(dbconn, sql))
+      }
 
-    write_column_hashed_data(df, tblname)
-  })
-  DBI::dbCommit(dbconn)
+      ## Columns that are missing in data need to be set to NA
+      missing_cols <- !is.element(colnames(one_row), new_names)
+      if (sum(missing_cols) > 0) {
+        raw_names <- translate_column_names(colnames(one_row)[missing_cols], dbconn)
+        stopifnot(is.character(raw_names))
+        df[, raw_names] <- lapply(sapply(one_row[, missing_cols], class), as, object = NA)
+      }
+
+      write_column_hashed_data(df, tblname)
+    })
+    },
+    warning = function(w) {
+      message("An warning occured:", e)
+      messaged("Rollback!")
+      DBI::dbRollback(dbconn)
+    },
+    error = function(e) {
+      message("An error occured:", e)
+      messaged("Rollback!")
+      DBI::dbRollback(dbconn)
+    },
+    finally = {
+      DBI::dbCommit(dbconn)
+    }
+  )
   invisible(TRUE)
 }
 
