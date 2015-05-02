@@ -1,4 +1,4 @@
-A general caching layer for R projects [![Build Status](https://travis-ci.org/robertzk/cachemeifyoucan.svg?branch=master)](https://travis-ci.org/robertzk/cachemeifyoucan) [![Coverage Status](https://coveralls.io/repos/robertzk/cachemeifyoucan/badge.svg?branch=master)](https://coveralls.io/r/robertzk/cachemeifyoucan) ![Release Tag](https://img.shields.io/github/tag/robertzk/cachemeifyoucan.svg)
+A general caching layer for R projects [![Build Status](https://travis-ci.org/robertzk/cachemeifyoucan.svg?branch=master)](https://travis-ci.org/robertzk/cachemeifyoucan) [![Coverage Status](https://coveralls.io/repos/robertzk/cachemeifyoucan/badge.svg?branch=master)](https://coveralls.io/r/robertzk/cachemeifyoucan) ![Release Tag](https://img.shields.io/github/tag/robertzk/cachemeifyoucan.svg) [![Documentation](https://img.shields.io/badge/rocco--docs-%E2%9C%93-blue.svg)](http://robertzk.github.io/cachemeifyoucan/)
 ==========
 
 One of the most frustrating parts about being a data scientist is

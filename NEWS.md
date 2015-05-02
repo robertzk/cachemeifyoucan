@@ -1,3 +1,9 @@
+# Version 0.2.0
+
+  * Added column sharding, which allows to store data frames with large number of columns.
+  * Rocco documentation.
+  * Automatically create indexes on shards, which greatly improves read times.
+
 # Version 0.1.7
 
   * Integrated batchman v1.0.0.9000, which fixes robust functionality.
@@ -5,13 +11,13 @@
 # Version 0.1.6.2
 
   * If two users are populating the caching layer at the same time, the uncached
-    function will not be run twice by both functions. Instead, each attempt to 
+    function will not be run twice by both functions. Instead, each attempt to
     run the uncached function will query the database for whether those records
     have been cached. This leads to a speed-up during parallel cache population.
 
 # Version 0.1.6.1
 
-  * Added `cachemeifyoucan.verbose` global option for whether to display 
+  * Added `cachemeifyoucan.verbose` global option for whether to display
     batch caching progress.
 
 # Version 0.1.6
@@ -21,7 +27,7 @@
 # Version 0.1.5
 
   * Simple generic bug fix.
-  
+
 # Version 0.1.4
 
   * Critical fix for usage of the `force.` parameter.
