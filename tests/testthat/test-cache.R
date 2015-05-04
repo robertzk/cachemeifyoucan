@@ -6,8 +6,8 @@ library(testthatsomemore)
 # Set up local database for now
 # https://github.com/hadley/dplyr/blob/master/vignettes/notes/postgres-setup.Rmd
 describe("cache function", {
-
-  test_that('calling the cached function for the first time populated a new table', {  
+  
+  test_that('calling the cached function for the first time populated a new table', {
     # First remove all tables in the local database.
     expect_cached({
       df_ref <- batch_data(1:5)
@@ -15,7 +15,7 @@ describe("cache function", {
     })
   })
 
-  test_that('retrieving partial result from cache works', { 
+  test_that('retrieving partial result from cache works', {
     expect_cached({
       df_ref <- batch_data(1:5)
       cached_fcn(key = 1:5, model_version, type)
@@ -23,7 +23,7 @@ describe("cache function", {
     })
   })
 
-  test_that('attempting to populate a new row with a different value fails due to cache hit', { 
+  test_that('attempting to populate a new row with a different value fails due to cache hit', {
     expect_cached({
       df_ref <- batch_data(1:5, switch = TRUE, flip = 4:5)
       cached_fcn(key = 1:5, model_version, type, switch = TRUE, flip = 4:5)
@@ -32,7 +32,7 @@ describe("cache function", {
     })
   })
 
-  test_that('appending partially overlapped table adds to cache', { 
+  test_that('appending partially overlapped table adds to cache', {
     expect_cached({
       df_ref <- batch_data(1:5, model_version, type, switch = TRUE, flip = 1)
       df_ref <- rbind(df_ref, batch_data(6, model_version, type))
@@ -61,7 +61,7 @@ describe("cache function", {
     })
   })
 
-  test_that('non-numeric primary keys are supported', { 
+  test_that('non-numeric primary keys are supported', {
     expect_cached({
       df_ref <- batch_data(letters[1:5])
       cached_fcn(key = letters[1:5], model_version, type)
@@ -69,7 +69,7 @@ describe("cache function", {
     })
   })
 
-  test_that('the force. parameter triggers cache re-population', {  
+  test_that('the force. parameter triggers cache re-population', {
     # First remove all tables in the local database.
     expect_cached({
       df_ref <- batch_data(1:5)
@@ -79,8 +79,7 @@ describe("cache function", {
         expect_error(df_cached <- cached_fcn(key = 1:5, model_version, type, force. = FALSE),
                      "Caching layer should not be used")
       })
-      cached_fcn(key = 1:5, model_version, type)
-      assert(df_cached <- cached_fcn(key = 1:5, model_version, type, force. = TRUE))
+      df_cached <- cached_fcn(key = 1:5, model_version, type, force. = TRUE)
     })
   })
 
