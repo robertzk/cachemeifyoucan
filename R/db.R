@@ -170,16 +170,16 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     on.exit(options(old_options))
 
     ## Store the map of logical table names to physical shards in the table_shard_map table.
-    if (!DBI::dbExistsTable(dbconn, 'table_shard_map'))
+    if (!DBI::dbExistsTable(dbconn, 'table_shard_map')) {
       dbWriteTableUntilSuccess(dbconn, 'table_shard_map', table_shard_map)
-    else {
+    } else {
       shards <- DBI::dbGetQuery(dbconn, paste0("SELECT shard_name FROM table_shard_map WHERE table_name='", tblname,"'"))
       if (NROW(shards) > 0) {
         shards <- shards[[1]]
-        table_shard_map <- table_shard_map[table_shard_map$shard_name %nin% shards,]
+        table_shard_map <- table_shard_map[table_shard_map$shard_name %nin% shards, ]
       }
       if (NROW(table_shard_map) > 0) {
-        dbWriteTable(dbconn, 'table_shard_map', table_shard_map, append = TRUE, row.names = 0)
+        DBI::dbWriteTable(dbconn, 'table_shard_map', table_shard_map, append = TRUE, row.names = 0)
       }
     }
     TRUE
@@ -238,7 +238,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
         list(df = df[setdiff(colnames(df), used_columns)], shard_name = shard)
       } else {
         ## If the response is empty, write the first N columns of the dataframe
-        ## Othrwise, only write out those columns that already exist in this shard
+        ## Otherwise, only write out those columns that already exist in this shard
         shard_exists <- DBI::dbExistsTable(dbconn, shard)
         if (isTRUE(shard_exists)) {
           one_row <- DBI::dbGetQuery(dbconn, paste0("SELECT * FROM ", shard, " LIMIT 1"))
@@ -253,14 +253,14 @@ write_data_safely <- function(dbconn, tblname, df, key) {
             DBI::dbSendQuery(dbconn, paste0("DROP TABLE ", shard))
           }
           columns <- colnames(df)
-          columns <- columns[which(columns != key)]
+          columns <- columns[columns != key]
           columns <- c(columns[1:MAX_COLUMNS_PER_SHARD - 1], key)
-          used_columns <<- append(used_columns, columns[which(columns != key)])
+          used_columns <<- append(used_columns, columns[columns != key])
           list(df = df[columns], shard_name = shard)
         } else {
           columns <- unique(translate_column_names(colnames(one_row), dbconn))
-          used_columns <<- append(used_columns, columns[which(columns != key)])
-          list(df = df[which(colnames(df) %in% columns)], shard_name = shard)
+          used_columns <<- append(used_columns, columns[columns != key])
+          list(df = df[colnames(df) %in% columns], shard_name = shard)
         }
       }
     }, last = shard_names[length(shard_names)], key = key)
@@ -371,12 +371,12 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     },
     warning = function(w) {
       message("An warning occured:", e)
-      messaged("Rollback!")
+      message("Rollback!")
       DBI::dbRollback(dbconn)
     },
     error = function(e) {
       message("An error occured:", e)
-      messaged("Rollback!")
+      message("Rollback!")
       DBI::dbRollback(dbconn)
     },
     finally = {
@@ -419,7 +419,7 @@ get_new_key <- function(dbconn, tbl_name, ids, key) {
   if (length(ids) == 0) return(integer(0))
   shards <- get_shards_for_table(dbconn, tbl_name)
   ## If there are no existing shards - then nothing is cached yet
-  if(NROW(shards) == 0) {
+  if (NROW(shards) == 0) {
     return(ids)
   } else {
     shards <- shards[[1]]
@@ -446,7 +446,7 @@ remove_old_key <- function(dbconn, tbl_name, ids, key) {
   if (!DBI::dbExistsTable(dbconn, tbl_name)) return(invisible(NULL))
   id_column_name <- get_hashed_names(key)
   shards <- get_shards_for_table(dbconn, tbl_name)
-  if(NROW(shards) == 0) return(invisible(NULL))
+  if (NROW(shards) == 0) return(invisible(NULL))
   ## In this case though, we need to delete from all shards to keep them consistent
   sapply(shards, function(shard) {
     DBI::dbSendQuery(dbconn, paste0(
@@ -529,6 +529,6 @@ build_connection <- function(con, env) {
 #' @export
 is_db_connected <- function(con) {
   res <- tryCatch(fetch(DBI::dbSendQuery(con, "SELECT 1 + 1"))[1,1], error = function(e) NULL)
-  if(is.null(res) || res != 2) return(FALSE)
+  if (is.null(res) || res != 2) return(FALSE)
   TRUE
 }
