@@ -73,7 +73,7 @@ db2df <- function(df, dbconn, key) {
 #' @param dbconn SQLConnection. A database connection.
 #' @param key. Identifier of database table.
 add_index <- function(dbconn, tblname, key, idx_name) {
-  DBI::dbSendQuery(dbconn, pp('CREATE INDEX #{idx_name} ON #{tblname}(#{key})'))
+  DBI::dbSendQuery(dbconn, paste0('CREATE INDEX ', idx_name, ' ON ', tblname, '(', key, ')'))
   TRUE
 }
 
