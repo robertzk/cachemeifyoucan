@@ -1,6 +1,5 @@
 #' Database table name for a given prefix and salt.
 #'
-#' @name table_name
 #' @param prefix character. Prefix.
 #' @param salt list. Salt for the table name.
 #' @importFrom digest digest
@@ -12,7 +11,6 @@ table_name <- function(prefix, salt) {
 
 #' Fetch the map of column names.
 #'
-#' @name column_names_map
 #' @param dbconn SQLConnection. A database connection.
 #' @importFrom DBI dbGetQuery
 column_names_map <- function(dbconn) {
@@ -21,7 +19,6 @@ column_names_map <- function(dbconn) {
 
 #' Fetch all the shards for the given table name.
 #'
-#' @name get_shards_for_table
 #' @param dbconn SQLConnection. A database connection.
 #' @param tbl_name character. The calculated table name for the function.
 #' @return one or many names of the shard tables.
@@ -47,7 +44,6 @@ create_shards_table <- function(dbconn, tblname) {
 
 #' MD5 digest of column names.
 #'
-#' @name get_hashed_names
 #' @param raw_names character. A character vector of column names.
 #' @importFrom digest digest
 #' @return the character vector of hashed names.
@@ -57,7 +53,6 @@ get_hashed_names <- function(raw_names) {
 
 #' Translate column names using the column_names table from MD5 to raw.
 #'
-#' @name translate_column_names
 #' @param names character. A character vector of column names.
 #' @param dbconn SQLConnection. A database connection.
 translate_column_names <- function(names, dbconn) {
@@ -68,7 +63,6 @@ translate_column_names <- function(names, dbconn) {
 
 #' Convert the raw fetched database table to a readable data frame.
 #'
-#' @name db2df
 #' @param df. Raw fetched database table.
 #' @param dbconn SQLConnection. A database connection.
 #' @param key. Identifier of database table.
@@ -87,24 +81,6 @@ db2df <- function(df, dbconn, key) {
 add_index <- function(dbconn, tblname, key, idx_name) {
   DBI::dbSendQuery(dbconn, pp('CREATE INDEX #{idx_name} ON #{tblname}(#{key})'))
   TRUE
-}
-
-
-#' Fetch the data frame from database conditioned on a key.
-#'
-#' @name read_data
-#' @param dbconn SQLConnection. A database connection.
-#' @param tblname character. Database table name.
-#' @param ids vector. A vector of ids.
-#' @param key character. Table key.
-#' @importFrom DBI dbReadTable
-read_data <- function(dbconn, tblname, ids, key) {
-  df <- db2df(dbReadTable(dbconn, tblname), dbconn, key)
-  id_col <- grep(key, colnames(df), value = TRUE)
-  if (length(id_col) != 1)
-    stop("The data you are reading from the database must contain exactly one ",
-         paste0("column same as ", key))
-  df[df[[id_col]] == ids, , drop = FALSE]
 }
 
 #' Try and check dbWriteTable until success
