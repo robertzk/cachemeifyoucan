@@ -2,7 +2,6 @@
 #'
 #' @param prefix character. Prefix.
 #' @param salt list. Salt for the table name.
-#' @importFrom digest digest
 #' @return the table name. This will just be \code{"prefix_"}
 #'   appended with the MD5 hash of the digest of the \code{salt}.
 table_name <- function(prefix, salt) {
@@ -12,7 +11,6 @@ table_name <- function(prefix, salt) {
 #' Fetch the map of column names.
 #'
 #' @param dbconn SQLConnection. A database connection.
-#' @importFrom DBI dbGetQuery
 column_names_map <- function(dbconn) {
   DBI::dbGetQuery(dbconn, "SELECT * FROM column_names")
 }
@@ -22,7 +20,6 @@ column_names_map <- function(dbconn) {
 #' @param dbconn SQLConnection. A database connection.
 #' @param tbl_name character. The calculated table name for the function.
 #' @return one or many names of the shard tables.
-#' @importFrom DBI dbGetQuery
 get_shards_for_table <- function(dbconn, tbl_name) {
   if (!DBI::dbExistsTable(dbconn, 'table_shard_map')) create_shards_table(dbconn, 'table_shard_map')
   DBI::dbGetQuery(dbconn, paste0("SELECT shard_name FROM table_shard_map where table_name='", tbl_name, "'"))
@@ -33,22 +30,19 @@ get_shards_for_table <- function(dbconn, tbl_name) {
 #' @name create_table
 #' @param dbconn SQLConnection. A database connection.
 #' @param tblname character.The table to be created
-#' @importFrom DBI dbGetQuery
-#' @importFrom productivus pp
 create_shards_table <- function(dbconn, tblname) {
   if (DBI::dbExistsTable(dbconn, tblname)) return(TRUE)
-  sql <- pp("CREATE TABLE #{tblname} (table_name varchar(255) NOT NULL, shard_name varchar(255) NOT NULL);")
-  DBI::dbGetQuery(dbconn, sql)
+  sql <- paste0("CREATE TABLE ", tblname, " (table_name varchar(255) NOT NULL, shard_name varchar(255) NOT NULL);")
+  DBI::dbSendQuery(dbconn, sql)
   TRUE
 }
 
 #' MD5 digest of column names.
 #'
 #' @param raw_names character. A character vector of column names.
-#' @importFrom digest digest
 #' @return the character vector of hashed names.
 get_hashed_names <- function(raw_names) {
-  paste0('c', vapply(raw_names, digest, character(1)))
+  paste0('c', vapply(raw_names, digest::digest, character(1)))
 }
 
 #' Translate column names using the column_names table from MD5 to raw.
@@ -85,13 +79,9 @@ add_index <- function(dbconn, tblname, key, idx_name) {
 
 #' Try and check dbWriteTable until success
 #'
-#' @name dbWriteTableUntilSuccess
 #' @param dbconn SQLConnection. A database connection.
 #' @param tblname character. Database table name.
 #' @param df data frame. The data frame to insert.
-#' @importFrom DBI dbWriteTable
-#' @importFrom DBI dbGetQuery
-#' @importFrom DBI dbRemoveTable
 dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
   DBI::dbRemoveTable(dbconn, tblname)
   success <- FALSE
@@ -124,13 +114,10 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
 ##
 #' Write data.frames to DB addressing pitfalls
 #'
-#' @name write_data_safely
 #' @param dbconn PostgreSQLConnection. The database connection.
 #' @param tblname character. The table name to write the data into.
 #' @param df data.frame. The data to write.
 #' @param key character. The identifier column name.
-#' @importFrom productivus pp
-#' @importFrom DBI dbCommit dbRollback
 write_data_safely <- function(dbconn, tblname, df, key) {
   if (is.null(df)) return(FALSE)
   if (!is.data.frame(df)) return(FALSE)
@@ -186,7 +173,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     if (!DBI::dbExistsTable(dbconn, 'table_shard_map'))
       dbWriteTableUntilSuccess(dbconn, 'table_shard_map', table_shard_map)
     else {
-      shards <- DBI::dbGetQuery(dbconn, pp("SELECT shard_name FROM table_shard_map WHERE table_name='#{tblname}'"))
+      shards <- DBI::dbGetQuery(dbconn, paste0("SELECT shard_name FROM table_shard_map WHERE table_name='", tblname,"'"))
       if (NROW(shards) > 0) {
         shards <- shards[[1]]
         table_shard_map <- table_shard_map[table_shard_map$shard_name %nin% shards,]
@@ -204,7 +191,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     ## Fetch existing shards
     shards <- c()
     if (DBI::dbExistsTable(dbconn, 'table_shard_map')) {
-      shards <- DBI::dbGetQuery(dbconn, pp("SELECT shard_name FROM table_shard_map WHERE table_name='#{tblname}'"))
+      shards <- DBI::dbGetQuery(dbconn, paste0("SELECT shard_name FROM table_shard_map WHERE table_name='", tblname,"'"))
       if (NROW(shards) > 0) {
         shards <- shards[[1]]
       }
@@ -254,7 +241,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
         ## Othrwise, only write out those columns that already exist in this shard
         shard_exists <- DBI::dbExistsTable(dbconn, shard)
         if (isTRUE(shard_exists)) {
-          one_row <- DBI::dbGetQuery(dbconn, paste("SELECT * FROM ", shard, " LIMIT 1"))
+          one_row <- DBI::dbGetQuery(dbconn, paste0("SELECT * FROM ", shard, " LIMIT 1"))
         } else one_row <- NULL
         ## Here we abuse the fact that ```NROW(NULL) == 0```
         if (NROW(one_row) == 0 || NCOL(one_row) == 2) {
@@ -263,7 +250,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
           ## the id and the hashed id. So basically this shard is useless!
           ## In this case we should drop it, and pretend this table doesn't exist
           if (NCOL(one_row) == 2) {
-            DBI::dbSendQuery(dbconn, pp("DROP TABLE #{shard}"))
+            DBI::dbSendQuery(dbconn, paste0("DROP TABLE ", shard))
           }
           columns <- colnames(df)
           columns <- columns[which(columns != key)]
@@ -424,13 +411,10 @@ build_insert_query <- function(tblname, df) {
 
 #' setdiff current ids with those in the table of the database.
 #'
-#' @name get_new_key
 #' @param dbconn SQLConnection. The database connection.
 #' @param tbl_name character. Database table name.
 #' @param ids vector. A vector of ids.
 #' @param key character. Identifier of database table.
-#' @importFrom DBI dbExistsTable
-#' @importFrom DBI dbGetQuery
 get_new_key <- function(dbconn, tbl_name, ids, key) {
   if (length(ids) == 0) return(integer(0))
   shards <- get_shards_for_table(dbconn, tbl_name)
@@ -453,13 +437,10 @@ get_new_key <- function(dbconn, tbl_name, ids, key) {
 
 #' remove old keys to maintain uniqueness of "id" for the sake of force pushing
 #'
-#' @name remove_old_key
 #' @param dbconn SQLConnection. The database connection.
 #' @param tbl_name character. Database table name.
 #' @param ids vector. A vector of ids.
 #' @param key character. Identifier of database table.
-#' @importFrom DBI dbExistsTable
-#' @importFrom DBI dbSendQuery
 remove_old_key <- function(dbconn, tbl_name, ids, key) {
   if (length(ids) == 0) return(invisible(NULL))
   if (!DBI::dbExistsTable(dbconn, tbl_name)) return(invisible(NULL))
