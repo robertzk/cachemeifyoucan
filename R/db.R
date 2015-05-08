@@ -25,9 +25,9 @@ get_shards_for_table <- function(dbconn, tbl_name) {
   DBI::dbGetQuery(dbconn, paste0("SELECT shard_name FROM table_shard_map where table_name='", tbl_name, "'"))
 }
 
-#' Fetch all the shards for the given table name.
+#' Create the table <=> shards map.
 #'
-#' @name create_table
+#' @rdname create_table
 #' @param dbconn SQLConnection. A database connection.
 #' @param tblname character.The table to be created
 create_shards_table <- function(dbconn, tblname) {
