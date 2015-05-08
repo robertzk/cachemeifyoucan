@@ -9,7 +9,16 @@ expect_cached <- function(expr) {
     lapply(dbListTables(conn), function(t) dbRemoveTable(conn, t))
     cached_fcn <- cache(batch_data, key = c(key = "id"), c("model_version", "type"), con = conn, prefix = prefix)
     eval(substitute(expr), envir = environment())
-    df_db <- db2df(dbReadTable(conn, cachemeifyoucan:::table_name(prefix, list(model_version = model_version, type = type))), conn, "id")
+
+    shards <- cachemeifyoucan:::get_shards_for_table(conn, cachemeifyoucan:::table_name(prefix, list(model_version = model_version, type = type)))[[1]]
+    lst <- lapply(shards, function(shard) {
+      dff <- dbReadTable(conn, shard)
+      dff <- dff[colnames(dff) != 'id']
+      colnames(dff) <- cachemeifyoucan:::translate_column_names(colnames(dff), conn)
+      dff
+    })
+    df_db <- cachemeifyoucan:::merge2(lst, "id")
+
     if (!exists('no_check', envir = environment(), inherits = FALSE) ) {
       expect_equal(df_db, df_ref)
     }
@@ -18,4 +27,3 @@ expect_cached <- function(expr) {
     }
   })
 }
-

@@ -1,4 +1,4 @@
-A general caching layer for R projects [![Build Status](https://travis-ci.org/robertzk/cachemeifyoucan.svg?branch=master)](https://travis-ci.org/robertzk/cachemeifyoucan) [![Coverage Status](https://coveralls.io/repos/robertzk/cachemeifyoucan/badge.svg?branch=master)](https://coveralls.io/r/robertzk/cachemeifyoucan) ![Release Tag](https://img.shields.io/github/tag/robertzk/cachemeifyoucan.svg)
+A general caching layer for R projects [![Build Status](https://travis-ci.org/robertzk/cachemeifyoucan.svg?branch=master)](https://travis-ci.org/robertzk/cachemeifyoucan) [![Coverage Status](https://coveralls.io/repos/robertzk/cachemeifyoucan/badge.svg?branch=master)](https://coveralls.io/r/robertzk/cachemeifyoucan) ![Release Tag](https://img.shields.io/github/tag/robertzk/cachemeifyoucan.svg) [![Documentation](https://img.shields.io/badge/rocco--docs-%E2%9C%93-blue.svg)](http://robertzk.github.io/cachemeifyoucan/)
 ==========
 
 One of the most frustrating parts about being a data scientist is
@@ -37,7 +37,7 @@ if (!require("devtools")) install.packages("devtools")
 devtools::install_github("robertzk/cachemeifyoucan")
 ```
 
-When using the database caching features, you will need to setup a 
+When using the database caching features, you will need to setup a
 `database.yml` file (I am working on writing up how to do this).
 
 # Adapters
@@ -46,6 +46,9 @@ It will be possible to specify arbitrary caching backends: a database,
 S3, a flat file. For more complex strategies, it will be a little bit of work
 to set up the correct caching call, but the resulting performance
 benefits should be worth it.
+
+For now cachemeifyoucan works with PostgreSQL and MonetDB, but it's primarily
+optimized for the former.
 
 # Testing
 
