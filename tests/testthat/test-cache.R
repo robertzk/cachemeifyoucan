@@ -23,7 +23,7 @@ describe("cache function", {
       expect_equal(dim(bd <- batch_huge_data(1:10)), dim(cached_fcn(1:10)))
       # Make sure we're reading from cache and it's fast now!
       time <- system.time(tmp <- cached_fcn(1:10))
-      expect_true(time[3] < 0.5)
+      expect_true(time[3] < 1)
       # And the results are still correct
       expect_equal(dim(bd), dim(tmp))
     })
