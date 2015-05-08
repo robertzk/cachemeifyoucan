@@ -6,12 +6,26 @@ library(testthatsomemore)
 # Set up local database for now
 # https://github.com/hadley/dplyr/blob/master/vignettes/notes/postgres-setup.Rmd
 describe("cache function", {
-  
+
   test_that('calling the cached function for the first time populated a new table', {
     # First remove all tables in the local database.
     expect_cached({
       df_ref <- batch_data(1:5)
       df_cached <- cached_fcn(key = 1:5, model_version, type)
+    })
+  })
+
+  test_that('We can cache big tables', {
+    with_connection(dbconn(), {
+      lapply(dbListTables(conn), function(t) dbRemoveTable(conn, t))
+      cached_fcn <- cache(batch_huge_data, key = c(key = "id"), c("version"), con = conn, prefix = "huge_data")
+      # Populate the cache and make sure that the results are equal
+      expect_equal(dim(bd <- batch_huge_data(1:10)), dim(cached_fcn(1:10)))
+      # Make sure we're reading from cache and it's fast now!
+      time <- system.time(tmp <- cached_fcn(1:10))
+      expect_true(time[3] < 0.5)
+      # And the results are still correct
+      expect_equal(dim(bd), dim(tmp))
     })
   })
 
