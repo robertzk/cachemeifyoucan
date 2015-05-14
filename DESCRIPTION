@@ -16,8 +16,7 @@ Imports:
     RPostgreSQL,
     digest,
     DBI,
-    plyr,
-    productivus
+    plyr
 Suggests:
     knitr,
     testthatsomemore,
