@@ -18,6 +18,7 @@ expect_cached <- function(expr) {
       dff
     })
     df_db <- cachemeifyoucan:::merge2(lst, "id")
+    browser()
 
     if (!exists('no_check', envir = environment(), inherits = FALSE) ) {
       expect_equal(df_db, df_ref)

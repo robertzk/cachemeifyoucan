@@ -83,11 +83,14 @@ add_index <- function(dbconn, tblname, key, idx_name) {
 #' @param tblname character. Database table name.
 #' @param df data frame. The data frame to insert.
 dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
-  DBI::dbRemoveTable(dbconn, tblname)
+  old_options <- options(scipen = 20, digits = 20)
+  on.exit(options(old_options))
+  if (DBI::dbExistsTable(dbconn, tblname))
+    DBI::dbRemoveTable(dbconn, tblname)
   success <- FALSE
   df[, vapply(df, function(x) all(is.na(x)), logical(1))] <- as.character(NA)
   while (!success) {
-    DBI::dbWriteTable(dbconn, tblname, df, append = FALSE, row.names = 0)
+    DBI::dbWriteTable(dbconn, tblname, df, append = FALSE, row.names = FALSE)
     num_rows <- DBI::dbGetQuery(dbconn, paste0('SELECT COUNT(*) FROM ', tblname))
     if (num_rows == nrow(df)) success <- TRUE
   }
@@ -148,7 +151,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
       raw_names <- DBI::dbGetQuery(dbconn, 'SELECT raw_name FROM column_names')[[1]]
       column_map <- column_map[!is.element(column_map$raw_name, raw_names), ]
       if (NROW(column_map) > 0) {
-        dbWriteTable(dbconn, 'column_names', column_map, append = TRUE, row.names = 0)
+        dbWriteTable(dbconn, 'column_names', column_map, append = TRUE, row.names = FALSE)
       }
     }
     TRUE
@@ -179,7 +182,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
         table_shard_map <- table_shard_map[table_shard_map$shard_name %nin% shards, ]
       }
       if (NROW(table_shard_map) > 0) {
-        DBI::dbWriteTable(dbconn, 'table_shard_map', table_shard_map, append = TRUE, row.names = 0)
+        DBI::dbWriteTable(dbconn, 'table_shard_map', table_shard_map, append = TRUE, row.names = FALSE)
       }
     }
     TRUE
@@ -279,7 +282,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     to_chars <- unname(vapply(df, function(x) is.factor(x) || is.ordered(x) || is.logical(x), logical(1)))
     df[to_chars] <- lapply(df[to_chars], as.character)
 
-    ## dbWriteTable(dbconn, tblname, df, row.names = 0, append = TRUE)
+    ## dbWriteTable(dbconn, tblname, df, row.names = FALSE, append = TRUE)
     ##
     ## Believe it or not, the above does not work! RPostgreSQL seems to have a
     ## bug that incorrectly serializes some kinds of data into the database.
@@ -291,6 +294,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     ## For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
     old_options <- options(scipen = 20, digits = 20)
     on.exit(options(old_options))
+    browser()
 
     for (slice in slices) {
       if (!append)  {
@@ -298,16 +302,11 @@ write_data_safely <- function(dbconn, tblname, df, key) {
         append <- TRUE
       } else {
         insert_query <- build_insert_query(tblname, df[slice, , drop = FALSE])
-        if (is(dbconn, "MonetDBConnection")) {
           DBI::dbSendQuery(dbconn, insert_query)
-        } else {
-          RPostgreSQL::postgresqlpqExec(dbconn, insert_query)
-        }
     }}
   }
-
   ## Use transactions!
-  DBI::dbGetQuery(dbconn, "BEGIN")
+  DBI::dbBegin(dbconn)
   tryCatch({
     ## Find the appropriate shards for this dataframe and tablename
     shard_names <- get_shard_names(df, tblname)
@@ -327,11 +326,14 @@ write_data_safely <- function(dbconn, tblname, df, key) {
         return(invisible(TRUE))
       }
 
-      one_row <- DBI::dbGetQuery(dbconn, paste("SELECT * FROM ", tblname, " LIMIT 1"))
+      one_row <- if (DBI::dbExistsTable(dbconn, tblname)) {
+        DBI::dbGetQuery(dbconn, paste("SELECT * FROM ", tblname, " LIMIT 1"))
+      } else NULL
       if (NROW(one_row) == 0) {
         ## The shard is empty! Delete it and write to it, finally
         ## Also, it's a great opportunity to enforce indexes on this table!
-        DBI::dbRemoveTable(dbconn, tblname)
+        if (DBI::dbExistsTable(dbconn, tblname))
+          DBI::dbRemoveTable(dbconn, tblname)
         write_column_hashed_data(df, tblname, append = FALSE)
         add_index(dbconn, tblname, key, digest::digest(paste0("i",tblname)))
         return(invisible(TRUE))
@@ -511,7 +513,9 @@ db_connection <- function(database.yml, env = "cache",
 #' @return a list of database connection and if it can be re-established.
 #' @export
 build_connection <- function(con, env) {
-  if (is.character(con)) {
+  if (inherits(con, 'DBIConnection')) {
+    return(con)
+  } else if (is.character(con)) {
     return(db_connection(con, env))
   } else if (is.function(con)) {
     return(con())
