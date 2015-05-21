@@ -294,7 +294,6 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     ## For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
     old_options <- options(scipen = 20, digits = 20)
     on.exit(options(old_options))
-    browser()
 
     for (slice in slices) {
       if (!append)  {
@@ -306,7 +305,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     }}
   }
   ## Use transactions!
-  DBI::dbBegin(dbconn)
+  # DBI::dbBegin(dbconn)
   tryCatch({
     ## Find the appropriate shards for this dataframe and tablename
     shard_names <- get_shard_names(df, tblname)
