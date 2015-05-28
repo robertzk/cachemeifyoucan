@@ -1,3 +1,7 @@
+# Version 0.2.0.1
+
+  * Fixed a bug in `uncached`.
+
 # Version 0.2.0
 
   * Added column sharding, which allows to store data frames with large number of columns.
