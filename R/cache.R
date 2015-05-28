@@ -264,7 +264,7 @@ uncached <- function(fn) {
       }))
       .FUN
     }
-    alt_fn <- hijack(fn, force. = TRUE)
+    hijack(fn, force. = TRUE)
   } else fn
 }
 
