@@ -248,8 +248,12 @@ cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_f
 #' @param fn function. The function that you want to uncache.
 #' @export
 uncached <- function(fn) {
-  stopifnot(is.function(fn), is(fn, "cached_function"))
-  environment(fn)$`_uncached_function`
+  stopifnot(is.function(fn))
+  if (is(fn, "cached_function")) {
+    environment(fn)$`_uncached_function`
+  } else {
+    fn
+  }
 }
 
 build_cached_function <- function(cached_function) {

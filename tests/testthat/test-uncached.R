@@ -19,4 +19,12 @@ describe("uncached function", {
     f <- function(...) TRUE
     expect_equal(uncached(f), f)
   })
+
+  test_that('uncached undoes caching', {
+    expect_cached({
+      df_ref <- batch_data(1:5)
+      df_cached <- cached_fcn(key = 1:5, model_version, type)
+      expect_equal(uncached(cached_fcn), batch_data)
+    })
+  })
 })
