@@ -1,6 +1,6 @@
 # Version 0.2.0.1
 
-  * Fixed a bug in `uncached`.
+  * Fixed a bug in `uncached`. 
 
 # Version 0.2.0
 
