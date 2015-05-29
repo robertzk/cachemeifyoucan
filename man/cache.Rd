@@ -33,7 +33,7 @@ if \code{x} and \code{y} are only allowed to be \code{TRUE} or
 \code{FALSE}, with potentially four different kinds of data.frame
 outputs, then up to four tables would be created.}
 
-\item{con}{SQLConnection or character. Database connection object, \code{emph}
+\item{con}{SQLConnection or character. Database connection object, \emph{or}
 character path to database.yml file. In the latter case, you will have to
 specify an \code{env} parameter that determines the environment used for
 the database.yml file.}
