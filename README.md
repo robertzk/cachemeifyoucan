@@ -5,31 +5,52 @@ One of the most frustrating parts about being a data scientist is
 waiting for data or other large downloads. This package offers a caching
 layer for arbitrary functions that relies on a database backend.
 
-Have some computationally expensive function? If you have [set up this package
-correctly](#installation), you should be able to simply write:
+Imagine you have a function that requires network communication or
+complex computation to produce some dataframe, where each row has
+a primary key.
 
-```R
-expensive_function <- cache(expensive_function)
+```r
+fetch_amazon_reviews <- function(review_id) {
+  # Return a data.frame of Amazon reviews obtained from Amazon's API.
+}
 ```
 
-The result is that if an atomic vector is passed as the first argument to
-`expensive_function`, and the function has already computed output
-for some of these values in the past, they will be retrieved from the cache.
+Ideally, we should only ever have to run this function once per unique
+`review_id`, since we should be able to cache the rows that have already
+been computed. Using cachemeifyoucan, we can write:
 
-For example, if the output of the function below is a dataframe whose first
-column contains the `user_ids`, then these rows will be `rbind`ed to the
-dataframe generated on any subsequent calls that ask for some users
-whose analysis has already been computed.
-
-```R
-analyze_users <- function(user_ids, analysis_type) { ... }
+```r
+cached_amazon_reviews <- cachemeifyoucan::cache(
+  fetch_amazon_reviews,
+  key    = "review_id",
+  con    = "path/to/database.yml",
+  env    = "cache"
+)
 ```
 
-The cache will keep track separately of each `analysis_type`.
+This will use the database connection specified in the database.yml file
+at `path/to/database.yml` to cache the function, and *only* fetch new
+records when that `review_id` has never yet been passed to
+`cached_amazon_reviews`.
+
+```yml
+# path/to/database.yml
+cache: # We only support postgres for now. Make sure you have instaled
+       # and loaded the RPostgreSQL package.
+  adapter: PostgreSQL
+  host: localhost     # Or your database host
+  dbname: name        # Name of the caching database  
+  user: username      # The user name for the database connection 
+  password: password  # The password for the database connection
+```
+
+After this setup, calling something like `cached_amazon_reviews(c(1, 2))`
+twice will cause the second call to use the database caching layer, speeding
+up calls that ask for already-computed primary keys.
 
 # Installation
 
-This package is not yet available from CRAN (as of Oct 10, 2014).
+This package is not yet available from CRAN (as of May 29, 2015).
 To install the latest development builds directly from GitHub, run this instead:
 
 ```R
@@ -38,17 +59,8 @@ devtools::install_github("robertzk/cachemeifyoucan")
 ```
 
 When using the database caching features, you will need to setup a
-`database.yml` file (I am working on writing up how to do this).
+`database.yml` file as in the example above.
 
-# Adapters
-
-It will be possible to specify arbitrary caching backends: a database,
-S3, a flat file. For more complex strategies, it will be a little bit of work
-to set up the correct caching call, but the resulting performance
-benefits should be worth it.
-
-For now cachemeifyoucan works with PostgreSQL and MonetDB, but it's primarily
-optimized for the former.
 
 # Testing
 
@@ -62,3 +74,12 @@ In order to run the tests in your R console, run the following commands:
 ```R
 test("/path/to/cachemeifyoucan")
 ```
+
+# Adapters
+
+Eventually, it will be possible to specify arbitrary caching backends: a database,
+S3, a flat file. For more complex strategies, it will be a little bit of work
+to set up the correct caching call, but the resulting performance
+benefits should be worth it.
+
+For now cachemeifyoucan works with PostgreSQL.
