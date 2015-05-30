@@ -249,7 +249,7 @@ To run tests locally, you'll need the following:
 In order to run the tests in your R console, run the following commands:
 
 ```R
-test("/path/to/cachemeifyoucan")
+devtools::test("/path/to/cachemeifyoucan")
 ```
 
 # Adapters
