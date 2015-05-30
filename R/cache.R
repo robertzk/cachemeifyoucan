@@ -243,9 +243,6 @@ cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_f
 
 #' Fetch the uncached function
 #'
-#' Calling the result will force the function to overwrite cache, but not read
-#' from it.
-#'
 #' If applied to a regular function it returns this function.
 #'
 #' @param fn function. The function that you want to uncache.
@@ -253,24 +250,10 @@ cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_f
 uncached <- function(fn) {
   stopifnot(is.function(fn))
   if (is(fn, "cached_function")) {
-    ## When calling the uncached function we want to overwrite cached values
-    ## so that next time we call the cached version we will get the latest results.
-    ## This can be useful when your cache become stale and you want to overwrite it with
-    ## new data.
-
-    ## If a cached function is passed **force.** parameter we will get the becavior we want.
-    ## We are going to *hijack* the function call and return a function with **force. = TRUE**.
-    ## Borrowed the implementation from [here](http://www.r-bloggers.com/hijacking-r-functions-changing-default-arguments/)
-    hijack <- function (FUN, ...) {
-      .FUN <- FUN
-      args <- list(...)
-      invisible(lapply(seq_along(args), function(i) {
-          formals(.FUN)[[names(args)[i]]] <<- args[[i]]
-      }))
-      .FUN
-    }
-    hijack(fn, force. = TRUE)
-  } else fn
+    environment(fn)$`_uncached_function`
+  } else {
+    fn
+  }
 }
 
 build_cached_function <- function(cached_function) {

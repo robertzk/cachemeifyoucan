@@ -1,3 +1,8 @@
+# Version 0.2.0.2
+
+ * Re-define `uncached` as simply stripping the caching layer, after some
+   confusion as to what the correct definition should be.
+
 # Version 0.2.0.1
 
   * Fixed a bug in `uncached`. 
