@@ -189,6 +189,8 @@ cached_review_amazon_info <- cachemeifyoucan::cache(review_amazon_info,
 ```
 
 We will now use different database tables for these two functions.
+You should only use alphanumeric characters or underscores in the
+prefix, as it will be part of a database table name.
 
 ## force.
 
