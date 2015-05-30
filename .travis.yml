@@ -12,7 +12,6 @@ install:
 - "./travis-tool.sh install_deps"
 - "sudo R CMD javareconf"
 - "./travis-tool.sh install_github rstats-db/DBI rstats-db/RPostgres"
-Fix DBI
 - "./travis-tool.sh install_r yaml DBI rJava RJDBC RPostgreSQL testthat knitr devtools digest"
 - "./travis-tool.sh install_r arules pbapply memoise stringr testthat"
 - "./travis-tool.sh install_github robertzk/Ramd peterhurford/batchman@1.0.0.9001"
