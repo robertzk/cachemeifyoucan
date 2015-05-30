@@ -99,7 +99,7 @@ By using the `cache` function, we are asking for the following:
      take the subset of IDs that have already been returned from
      a previous call to `cached_amazon_info`. Retrieve the data.frame
      for these records from an underlying database table.
-  2. The remaining IDs (those we have never passed to `cached_amazon_info`
+  2. The remaining IDs (those we have never passed to `cached_amazon_info`)
      should be fed to the base `amazon_info` function as if we had
      called it with this subset. This will yield another data.frame that
      was computed using live HTTP requests.
