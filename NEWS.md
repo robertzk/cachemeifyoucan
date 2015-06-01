@@ -1,6 +1,10 @@
-# Version 0.2.0.3
+# Version 0.2.0.4
 
  * Fix an issue with invalid index names.
+
+# Version 0.2.0.3
+
+ * Fixed some bugs and added new ones.
 
 # Version 0.2.0.2
 
