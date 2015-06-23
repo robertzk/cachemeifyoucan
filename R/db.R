@@ -73,6 +73,10 @@ db2df <- function(df, dbconn, key) {
 #' @param dbconn SQLConnection. A database connection.
 #' @param key. Identifier of database table.
 add_index <- function(dbconn, tblname, key, idx_name) {
+  if (!tolower(substring(idx_name, 1, 1)) %in% letters) {
+    stop(sprintf("Invalid index name '%s': must begin with an alphabetic character",
+                 idx_name))
+  }
   DBI::dbSendQuery(dbconn, paste0('CREATE INDEX ', idx_name, ' ON ', tblname, '(', key, ')'))
   TRUE
 }
@@ -333,7 +337,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
         ## Also, it's a great opportunity to enforce indexes on this table!
         DBI::dbRemoveTable(dbconn, tblname)
         write_column_hashed_data(df, tblname, append = FALSE)
-        add_index(dbconn, tblname, key, digest::digest(paste0("i",tblname)))
+        add_index(dbconn, tblname, key, paste0("i", digest::digest(tblname)))
         return(invisible(TRUE))
       }
 
