@@ -83,8 +83,6 @@ add_index <- function(dbconn, tblname, key, idx_name) {
 #' @param tblname character. Database table name.
 #' @param df data frame. The data frame to insert.
 dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
-  old_options <- options(scipen = 20, digits = 20)
-  on.exit(options(old_options))
   if (DBI::dbExistsTable(dbconn, tblname))
     DBI::dbRemoveTable(dbconn, tblname)
   success <- FALSE
@@ -141,8 +139,6 @@ write_data_safely <- function(dbconn, tblname, df, key) {
 
     ## If we don't do this, we will get really weird bugs with numeric things stored as character
     ## For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
-    old_options <- options(scipen = 20, digits = 20)
-    on.exit(options(old_options))
 
     ## Store the map of raw to MD5'ed column names in the column_names table.
     if (!DBI::dbExistsTable(dbconn, 'column_names'))
@@ -169,8 +165,6 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     table_shard_map <- data.frame(table_name = rep(tblname, length(shard_names)), shard_name = shard_names)
     ## If we don't do this, we will get really weird bugs with numeric things stored as character
     ## For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
-    old_options <- options(scipen = 20, digits = 20)
-    on.exit(options(old_options))
 
     ## Store the map of logical table names to physical shards in the table_shard_map table.
     if (!DBI::dbExistsTable(dbconn, 'table_shard_map')) {
@@ -292,8 +286,6 @@ write_data_safely <- function(dbconn, tblname, df, key) {
 
     ## If we don't do this, we will get really weird bugs with numeric things stored as character
     ## For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
-    old_options <- options(scipen = 20, digits = 20)
-    on.exit(options(old_options))
 
     for (slice in slices) {
       if (!append)  {
@@ -305,7 +297,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     }}
   }
   ## Use transactions!
-  # DBI::dbBegin(dbconn)
+  DBI::dbBegin(dbconn)
   tryCatch({
     ## Find the appropriate shards for this dataframe and tablename
     shard_names <- get_shard_names(df, tblname)
