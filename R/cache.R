@@ -28,12 +28,16 @@
 #'   if \code{x} and \code{y} are only allowed to be \code{TRUE} or
 #'   \code{FALSE}, with potentially four different kinds of data.frame
 #'   outputs, then up to four tables would be created.
-#' @param con SQLConnection. Database connection object.
+#' @param con SQLConnection or character. Database connection object, \emph{or}
+#'   character path to database.yml file. In the latter case, you will have to
+#'   specify an \code{env} parameter that determines the environment used for
+#'   the database.yml file.
 #' @param prefix character. Database table prefix. A different prefix should
 #'   be used for each cached function so that there are no table collisions.
-#'   Optional, but highly recommended.
+#'   Optional, but highly recommended. By default, the deparsed name of the
+#'   \code{uncached_function} parameter.
 #' @param env character. The environment of the database connection if con
-#'   is a yaml cofiguration file.
+#'   is a yaml cofiguration file. By default, \code{"cache"}.
 #' @param batch_size integer. Usually, the uncached operation is slow
 #'   (or we would not have to cache it!). However, fetching data from the
 #'   database is fast. To handle this dichotomy, the \code{batch_size}
@@ -79,7 +83,7 @@
 #' #       take the subset of IDs that have already been returned from
 #' #       a previous call to `cached_amazon_info`. Retrieve the data.frame
 #' #       for these records from an underlying database table.
-#' #   (2) The remaining IDs (those we have never passed to `cached_amazon_info`
+#' #   (2) The remaining IDs (those we have never passed to `cached_amazon_info`)
 #' #       should be fed to the base `amazon_info` function as if we had
 #' #       called it with this subset. This will yield another data.frame that
 #' #       was computed using live HTTP requests.
@@ -202,7 +206,8 @@
 #'   grab_sql_table(table_name = table_name, year = yr, month = mth, dbname = dbname)
 #' }
 #' }
-cache <- function(uncached_function, key, salt, con, prefix, env, batch_size = 100) {
+cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_function),
+                  env = "cache", batch_size = 100) {
   stopifnot(is.function(uncached_function),
     is.character(prefix), length(prefix) == 1,
     is.character(key), length(key) > 0,
@@ -238,9 +243,6 @@ cache <- function(uncached_function, key, salt, con, prefix, env, batch_size = 1
 
 #' Fetch the uncached function
 #'
-#' Calling the result will force the function to overwrite cache, but not read
-#' from it.
-#'
 #' If applied to a regular function it returns this function.
 #'
 #' @param fn function. The function that you want to uncache.
@@ -248,24 +250,10 @@ cache <- function(uncached_function, key, salt, con, prefix, env, batch_size = 1
 uncached <- function(fn) {
   stopifnot(is.function(fn))
   if (is(fn, "cached_function")) {
-    ## When calling the uncached function we want to overwrite cached values
-    ## so that next time we call the cached version we will get the latest results.
-    ## This can be useful when your cache become stale and you want to overwrite it with
-    ## new data.
-
-    ## If a cached function is passed **force.** parameter we will get the becavior we want.
-    ## We are going to *hijack* the function call and return a function with **force. = TRUE**.
-    ## Borrowed the implementation from [here](http://www.r-bloggers.com/hijacking-r-functions-changing-default-arguments/)
-    hijack <- function (FUN, ...) {
-      .FUN <- FUN
-      args <- list(...)
-      invisible(lapply(seq_along(args), function(i) {
-          formals(.FUN)[[names(args)[i]]] <<- args[[i]]
-      }))
-      .FUN
-    }
-    alt_fn <- hijack(fn, force. = TRUE)
-  } else fn
+    environment(fn)$`_uncached_function`
+  } else {
+    fn
+  }
 }
 
 build_cached_function <- function(cached_function) {

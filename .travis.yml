@@ -11,7 +11,8 @@ before_script:
 install:
 - "./travis-tool.sh install_deps"
 - "sudo R CMD javareconf"
-- "./travis-tool.sh install_r yaml DBI rJava RJDBC RPostgreSQL testthat knitr devtools digest"
+- "./travis-tool.sh install_github rstats-db/DBI rstats-db/RPostgres"
+- "./travis-tool.sh install_r yaml rJava RJDBC RPostgreSQL testthat knitr devtools digest"
 - "./travis-tool.sh install_r arules pbapply memoise stringr testthat"
 - "./travis-tool.sh install_github robertzk/Ramd peterhurford/batchman@1.0.0.9001"
 - "./travis-tool.sh install_github robertzk/stagerunner"

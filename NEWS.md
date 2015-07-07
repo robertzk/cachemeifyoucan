@@ -1,3 +1,20 @@
+# Version 0.2.0.4
+
+ * Fix an issue with invalid index names.
+
+# Version 0.2.0.3
+
+ * Fixed some bugs and added new ones.
+
+# Version 0.2.0.2
+
+ * Re-define `uncached` as simply stripping the caching layer, after some
+   confusion as to what the correct definition should be.
+
+# Version 0.2.0.1
+
+  * Fixed a bug in `uncached`.
+
 # Version 0.2.0
 
   * Added column sharding, which allows to store data frames with large number of columns.

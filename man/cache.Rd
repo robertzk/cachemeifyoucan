@@ -4,7 +4,8 @@
 \alias{cache}
 \title{Apply a database caching layer to an arbitrary R function.}
 \usage{
-cache(uncached_function, key, salt, con, prefix, env, batch_size = 100)
+cache(uncached_function, key, salt, con, prefix = deparse(uncached_function),
+  env = "cache", batch_size = 100)
 }
 \arguments{
 \item{uncached_function}{function. The function to cache.}
@@ -32,14 +33,18 @@ if \code{x} and \code{y} are only allowed to be \code{TRUE} or
 \code{FALSE}, with potentially four different kinds of data.frame
 outputs, then up to four tables would be created.}
 
-\item{con}{SQLConnection. Database connection object.}
+\item{con}{SQLConnection or character. Database connection object, \emph{or}
+character path to database.yml file. In the latter case, you will have to
+specify an \code{env} parameter that determines the environment used for
+the database.yml file.}
 
 \item{prefix}{character. Database table prefix. A different prefix should
 be used for each cached function so that there are no table collisions.
-Optional, but highly recommended.}
+Optional, but highly recommended. By default, the deparsed name of the
+\code{uncached_function} parameter.}
 
 \item{env}{character. The environment of the database connection if con
-is a yaml cofiguration file.}
+is a yaml cofiguration file. By default, \code{"cache"}.}
 
 \item{batch_size}{integer. Usually, the uncached operation is slow
   (or we would not have to cache it!). However, fetching data from the
@@ -95,7 +100,7 @@ cached_amazon_info <- cachemeifyoucan::cache(amazon_info, key = 'id', con = con)
 #       take the subset of IDs that have already been returned from
 #       a previous call to `cached_amazon_info`. Retrieve the data.frame
 #       for these records from an underlying database table.
-#   (2) The remaining IDs (those we have never passed to `cached_amazon_info`
+#   (2) The remaining IDs (those we have never passed to `cached_amazon_info`)
 #       should be fed to the base `amazon_info` function as if we had
 #       called it with this subset. This will yield another data.frame that
 #       was computed using live HTTP requests.
