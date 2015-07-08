@@ -367,7 +367,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     })
     },
     warning = function(w) {
-      message("An warning occured:", e)
+      message("An warning occured:", w)
       message("Rollback!")
       DBI::dbRollback(dbconn)
     },
@@ -377,7 +377,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
       DBI::dbRollback(dbconn)
     },
     finally = {
-      DBI::dbCommit(dbconn)
+      DBI::dbSendQuery(dbconn, 'COMMIT')
     }
   )
   invisible(TRUE)
@@ -527,7 +527,6 @@ build_connection <- function(con, env) {
 #' @return `TRUE` or `FALSE` indicating if the database connection is good.
 #' @export
 is_db_connected <- function(con) {
-  res <- tryCatch(fetch(DBI::dbSendQuery(con, "SELECT 1 + 1"))[1,1], error = function(e) NULL)
-  if (is.null(res) || res != 2) return(FALSE)
-  TRUE
+  res <- tryCatch(DBI::dbGetQuery(con, "SELECT 1")[1,1], error = function(e) NULL)
+  if (is.null(res) || res != 1) FALSE else TRUE
 }
