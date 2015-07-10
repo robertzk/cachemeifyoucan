@@ -479,8 +479,9 @@ db_connection <- function(database.yml, env = "cache",
     config.database <- config.database[[1]]
   }
   ## Authorization arguments needed by the DBMS instance
+  ## Enforce rstats-db/RPostgres.
   # TODO: (RK) Inform user if they forgot database.yml entries.
-  do.call(DBI::dbConnect, append(list(drv = DBI::dbDriver(config.database$adapter)),
+  do.call(DBI::dbConnect, append(list(drv = DBI::dbDriver('Postgres')),
     config.database[!names(config.database) %in% "adapter"]))
 }
 
