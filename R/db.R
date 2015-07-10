@@ -376,29 +376,6 @@ write_data_safely <- function(dbconn, tblname, df, key) {
   invisible(TRUE)
 }
 
-#' Build an INSERT query for RPostgreSQL.
-#'
-#' Normally, this would not have to be done manually, but believe it or not,
-#' there appears to be a bug in the built-in dbWriteTable for some complex
-#' data!
-#'
-#' @param tblname character. The table to insert into.
-#' @param df data.frame. The data to insert.
-#' @return a string representing the query that must be executed, to be
-#'    used in conjunction with postgresqlpgExec.
-build_insert_query <- function(tblname, df) {
-  if (any(dim(df) == 0)) return('')
-  tmp <- vapply(df, is.character, logical(1))
-  df[, tmp] <- lapply(df[, tmp, drop = FALSE], function(x)
-    ifelse(is.na(x), 'NULL', paste0("'", gsub("'", "''", x, fixed = TRUE), "'")))
-
-  suppressWarnings(df[is.na(df)] <- 'NULL')
-
-  cols <- paste(colnames(df), collapse = ', ')
-  values <- paste(apply(df, 1, paste, collapse = ', '), collapse = '), (')
-  paste0("INSERT INTO ", tblname, " (", cols, ") VALUES (", values, ")")
-}
-
 #' setdiff current ids with those in the table of the database.
 #'
 #' @param dbconn SQLConnection. The database connection.
