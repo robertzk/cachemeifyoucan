@@ -12,7 +12,6 @@ expect_cached <- function(expr) {
     cached_fcn <- cache(batch_data, key = c(key = "id"), c("model_version", "type"), con = conn, prefix = prefix)
     eval(substitute(expr), envir = environment())
 
-
     shards <- cachemeifyoucan:::get_shards_for_table(conn, cachemeifyoucan:::table_name(prefix, list(model_version = model_version, type = type)))[[1]]
     lst <- lapply(shards, function(shard) {
       dff <- dbReadTable(conn, shard)

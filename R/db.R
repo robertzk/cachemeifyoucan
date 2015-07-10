@@ -202,7 +202,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     if (numcols == 0) return(NULL)
     numshards <- ceiling(numcols / MAX_COLUMNS_PER_SHARD)
     ## All data-containing tables will start with prefix *shard#{n}_*
-    newshards <- paste0("shard", seq(numshards), "_", digest::digest(tblname))
+    newshards <- paste0("shard", sprintf(paste0("%0", nchar(numshards), "d"), seq(numshards)), "_", digest::digest(tblname))
     if (NROW(shards) > 0) {
       unique(c(shards, newshards))
     } else newshards
@@ -255,6 +255,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
           }
           columns <- colnames(df)
           columns <- columns[columns != key]
+          columns <- setdiff(columns, used_columns)
           columns <- c(columns[1:MAX_COLUMNS_PER_SHARD - 1], key)
           used_columns <<- append(used_columns, columns[columns != key])
           list(df = df[columns], shard_name = shard)
