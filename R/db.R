@@ -143,6 +143,8 @@ write_data_safely <- function(dbconn, tblname, df, key) {
 
     ## If we don't do this, we will get really weird bugs with numeric things stored as character
     ## For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
+    old_options <- options(scipen = 20, digits = 20)
+    on.exit(options(old_options))
 
     ## Store the map of raw to MD5'ed column names in the column_names table.
     if (!DBI::dbExistsTable(dbconn, 'column_names'))
@@ -169,6 +171,8 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     table_shard_map <- data.frame(table_name = rep(tblname, length(shard_names)), shard_name = shard_names)
     ## If we don't do this, we will get really weird bugs with numeric things stored as character
     ## For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
+    old_options <- options(scipen = 20, digits = 20)
+    on.exit(options(old_options))
 
     ## Store the map of logical table names to physical shards in the table_shard_map table.
     if (!DBI::dbExistsTable(dbconn, 'table_shard_map')) {
@@ -202,7 +206,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     if (numcols == 0) return(NULL)
     numshards <- ceiling(numcols / MAX_COLUMNS_PER_SHARD)
     ## All data-containing tables will start with prefix *shard#{n}_*
-    newshards <- paste0("shard", sprintf(paste0("%0", nchar(numshards), "d"), seq(numshards)), "_", digest::digest(tblname))
+    newshards <- paste0("shard", seq(numshards), "_", digest::digest(tblname))
     if (NROW(shards) > 0) {
       unique(c(shards, newshards))
     } else newshards
@@ -224,7 +228,11 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     ## Make sure we don't store `key` in the used_columns! Need it in every dataframe
     used_columns <- c()
 
-    lapply(sort(shard_names), function (shard, last, key) {
+    ## We want to sort our shards prior to writing.
+    ## Unfortunately, `sort(1:11) == c(1, 10, 11, 2, 3, ...)` which is not what we want
+    ## That's why we're using a slightly more ghetto solution
+    suffix <- strsplit(shard_names[1], '_')[[1]][2]
+    lapply(paste0('shard', seq(length(shard_names)), '_', suffix), function (shard, last, key) {
       ## We need to create a map in the form of
       ## ```list(df = dataframe, shard_name = shard_names)```, where the dataframe is a subset
       ## of the original dataframe that contains less columns than
