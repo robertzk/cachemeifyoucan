@@ -32,7 +32,7 @@ describe("cache function", {
     expect_cached({
       df_ref <- batch_data(1:5)
       cached_fcn(key = 1:5, model_version, type)
-      expect_equal(df_ref[1, ], cached_fcn(key = 1, model_version, type))
+      expect_almost_equal(df_ref[1, ], cached_fcn(key = 1, model_version, type))
     })
   })
 
@@ -58,7 +58,7 @@ describe("cache function", {
     expect_cached({
       df_ref <- batch_data(1:5, model_version, type)
       cached_fcn(key = 1:5, model_version, type)
-      expect_equal(without_rownames(df_ref[5:1, ]),
+      expect_almost_equal(without_rownames(df_ref[5:1, ]),
                    without_rownames(cached_fcn(key = 5:1, model_version, type)))
       no_check <- TRUE
     })
@@ -68,7 +68,7 @@ describe("cache function", {
     expect_cached({
       df_ref <- batch_data(1:5, model_version, type)
       cached_fcn(key = 1:3, model_version, type)
-      expect_equal(without_rownames(df_ref[5:1, ]),
+      expect_almost_equal(without_rownames(df_ref[5:1, ]),
                    without_rownames(cached_fcn(key = 5:1, model_version, type)))
       no_check <- TRUE
     })
@@ -78,7 +78,7 @@ describe("cache function", {
     expect_cached({
       df_ref <- batch_data(letters[1:5])
       cached_fcn(key = letters[1:5], model_version, type)
-      expect_equal(df_ref[1, ], cached_fcn(key = 'a', model_version, type))
+      expect_almost_equal(df_ref[1, ], cached_fcn(key = 'a', model_version, type))
     })
   })
 

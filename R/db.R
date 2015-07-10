@@ -280,26 +280,10 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     to_chars <- unname(vapply(df, function(x) is.factor(x) || is.ordered(x) || is.logical(x), logical(1)))
     df[to_chars] <- lapply(df[to_chars], as.character)
 
+    ## Write out to postgres
     dbWriteTable(dbconn, tblname, df, row.names = FALSE, append = append)
-    ##
-    ## Believe it or not, the above does not work! RPostgreSQL seems to have a
-    ## bug that incorrectly serializes some kinds of data into the database.
-    ## Thus we must roll up our sleeves and write our own INSERT query. :-(
-    # number_of_records_per_insert_query <- 250
-    # slices <- slice(seq_len(nrow(df)), number_of_records_per_insert_query)
-    #
-    # ## If we don't do this, we will get really weird bugs with numeric things stored as character
-    # ## For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
-    #
-    # for (slice in slices) {
-    #   if (!append)  {
-    #     dbWriteTableUntilSuccess(dbconn, tblname, df)
-    #     append <- TRUE
-    #   } else {
-    #     insert_query <- build_insert_query(tblname, df[slice, , drop = FALSE])
-    #       DBI::dbSendQuery(dbconn, insert_query)
-    # }}
   }
+
   ## Use transactions!
   DBI::dbGetQuery(dbconn, 'BEGIN')
   tryCatch({
