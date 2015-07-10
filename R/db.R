@@ -467,6 +467,9 @@ db_connection <- function(database.yml, env = "cache",
   ## Authorization arguments needed by the DBMS instance
   ## Enforce rstats-db/RPostgres.
   # TODO: (RK) Inform user if they forgot database.yml entries.
+  if (!grepl("postgres", config.database$adapter, ignore.case = TRUE)) {
+    stop("Currently, only the postgres adapter is supported.")
+  }
   do.call(DBI::dbConnect, append(list(drv = DBI::dbDriver('Postgres')),
     config.database[!names(config.database) %in% "adapter"]))
 }
