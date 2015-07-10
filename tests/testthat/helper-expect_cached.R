@@ -20,7 +20,7 @@ expect_cached <- function(expr) {
     df_db <- cachemeifyoucan:::merge2(lst, "id")
 
     if (!exists('no_check', envir = environment(), inherits = FALSE) ) {
-      expect_equal(df_db, df_ref)
+      expect_equal(df_db, df_ref, tolerance = 1e-5)
     }
     if (exists('df_cached', envir = environment(), inherits = FALSE)) {
       expect_equal(df_cached, df_ref)

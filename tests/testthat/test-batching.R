@@ -24,4 +24,3 @@ test_that("it calls batchman::batch when uncached keys exceed batch size", {
     expect_true(env$called)
   })
 })
-

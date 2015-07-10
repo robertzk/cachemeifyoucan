@@ -33,7 +33,7 @@ get_shards_for_table <- function(dbconn, tbl_name) {
 create_shards_table <- function(dbconn, tblname) {
   if (DBI::dbExistsTable(dbconn, tblname)) return(TRUE)
   sql <- paste0("CREATE TABLE ", tblname, " (table_name varchar(255) NOT NULL, shard_name varchar(255) NOT NULL);")
-  DBI::dbSendQuery(dbconn, sql)
+  DBI::dbGetQuery(dbconn, sql)
   TRUE
 }
 
@@ -77,7 +77,7 @@ add_index <- function(dbconn, tblname, key, idx_name) {
     stop(sprintf("Invalid index name '%s': must begin with an alphabetic character",
                  idx_name))
   }
-  DBI::dbSendQuery(dbconn, paste0('CREATE INDEX ', idx_name, ' ON ', tblname, '(', key, ')'))
+  DBI::dbGetQuery(dbconn, paste0('CREATE INDEX ', idx_name, ' ON ', tblname, '(', key, ')'))
   TRUE
 }
 
@@ -251,7 +251,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
           ## the id and the hashed id. So basically this shard is useless!
           ## In this case we should drop it, and pretend this table doesn't exist
           if (NCOL(one_row) == 2) {
-            DBI::dbSendQuery(dbconn, paste0("DROP TABLE ", shard))
+            DBI::dbGetQuery(dbconn, paste0("DROP TABLE ", shard))
           }
           columns <- colnames(df)
           columns <- columns[columns != key]
@@ -280,28 +280,28 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     to_chars <- unname(vapply(df, function(x) is.factor(x) || is.ordered(x) || is.logical(x), logical(1)))
     df[to_chars] <- lapply(df[to_chars], as.character)
 
-    ## dbWriteTable(dbconn, tblname, df, row.names = FALSE, append = TRUE)
+    dbWriteTable(dbconn, tblname, df, row.names = FALSE, append = append)
     ##
     ## Believe it or not, the above does not work! RPostgreSQL seems to have a
     ## bug that incorrectly serializes some kinds of data into the database.
     ## Thus we must roll up our sleeves and write our own INSERT query. :-(
-    number_of_records_per_insert_query <- 250
-    slices <- slice(seq_len(nrow(df)), number_of_records_per_insert_query)
-
-    ## If we don't do this, we will get really weird bugs with numeric things stored as character
-    ## For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
-
-    for (slice in slices) {
-      if (!append)  {
-        dbWriteTableUntilSuccess(dbconn, tblname, df)
-        append <- TRUE
-      } else {
-        insert_query <- build_insert_query(tblname, df[slice, , drop = FALSE])
-          DBI::dbSendQuery(dbconn, insert_query)
-    }}
+    # number_of_records_per_insert_query <- 250
+    # slices <- slice(seq_len(nrow(df)), number_of_records_per_insert_query)
+    #
+    # ## If we don't do this, we will get really weird bugs with numeric things stored as character
+    # ## For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
+    #
+    # for (slice in slices) {
+    #   if (!append)  {
+    #     dbWriteTableUntilSuccess(dbconn, tblname, df)
+    #     append <- TRUE
+    #   } else {
+    #     insert_query <- build_insert_query(tblname, df[slice, , drop = FALSE])
+    #       DBI::dbSendQuery(dbconn, insert_query)
+    # }}
   }
   ## Use transactions!
-  DBI::dbSendQuery(dbconn, 'BEGIN')
+  DBI::dbGetQuery(dbconn, 'BEGIN')
   tryCatch({
     ## Find the appropriate shards for this dataframe and tablename
     shard_names <- get_shard_names(df, tblname)
@@ -315,7 +315,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
       tblname <- lst$shard_name
       df <- lst$df
       if (!DBI::dbExistsTable(dbconn, tblname)) {
-        ## The { column => MD5(column) } map doesn't exist yet. Create it!
+        ## The shard doesn't exist yet. Let's create it and index it by key!
         write_column_hashed_data(df, tblname, append = FALSE)
         add_index(dbconn, tblname, key, paste0("idx_", digest::digest(tblname)))
         return(invisible(TRUE))
@@ -377,7 +377,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
       DBI::dbRollback(dbconn)
     },
     finally = {
-      DBI::dbSendQuery(dbconn, 'COMMIT')
+      DBI::dbGetQuery(dbconn, 'COMMIT')
     }
   )
   invisible(TRUE)
@@ -446,7 +446,7 @@ remove_old_key <- function(dbconn, tbl_name, ids, key) {
   if (NROW(shards) == 0) return(invisible(NULL))
   ## In this case though, we need to delete from all shards to keep them consistent
   sapply(shards, function(shard) {
-    DBI::dbSendQuery(dbconn, paste0(
+    DBI::dbGetQuery(dbconn, paste0(
       "DELETE FROM ", shard, " WHERE ", id_column_name, " IN (",
       paste(ids, collapse = ","), ")"))
   })
