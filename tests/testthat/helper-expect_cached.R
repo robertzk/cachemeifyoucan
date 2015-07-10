@@ -4,6 +4,8 @@ with_connection <- function(conn, expr) {
   eval.parent(substitute(expr))
 }
 
+expect_almost_equal <- function(..., tolerance = 1e-5) expect_equal(..., tolerance = tolerance)
+
 expect_cached <- function(expr) {
   with_connection(dbconn(), {
     lapply(dbListTables(conn), function(t) dbRemoveTable(conn, t))
@@ -20,10 +22,10 @@ expect_cached <- function(expr) {
     df_db <- cachemeifyoucan:::merge2(lst, "id")
 
     if (!exists('no_check', envir = environment(), inherits = FALSE) ) {
-      expect_equal(df_db, df_ref)
+      expect_almost_equal(df_db, df_ref)
     }
     if (exists('df_cached', envir = environment(), inherits = FALSE)) {
-      expect_equal(df_cached, df_ref)
+      expect_almost_equal(df_cached, df_ref)
     }
   })
 }

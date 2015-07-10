@@ -1,3 +1,7 @@
+# Version 0.2.0.5
+
+ * Replace RPostgreSQL with rstats-db/RPostgres.
+
 # Version 0.2.0.4
 
  * Fix an issue with invalid index names.

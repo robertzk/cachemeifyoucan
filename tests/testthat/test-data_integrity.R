@@ -8,7 +8,7 @@ describe("data integrity", {
       df_ref <- rbind(df_ref, batch_data(6:10, model_version, type, add_column = TRUE))
       cached_fcn(key = 5:1,  model_version, type)
       df_cached <- without_rownames(cached_fcn(key = 1:10, model_version, type, add_column = TRUE))
-      expect_equal(without_rownames(df_ref),
+      expect_almost_equal(without_rownames(df_ref),
                    without_rownames(cached_fcn(key = 1:10, model_version, type)))
       no_check <- TRUE
     })

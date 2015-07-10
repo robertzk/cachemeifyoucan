@@ -19,7 +19,7 @@ batch_data <- function(key, model_version = "model_test", type = "record_id",
 
 
 batch_huge_data <- function(key, version = "version", type = "some_id") {
-  ret <- data.frame(matrix(0, nrow = length(key), ncol = 1500))
+  ret <- data.frame(matrix(0, nrow = length(key), ncol = 1e4))
   ret$id <- key
   # Simulate slowness
   Sys.sleep(3)
