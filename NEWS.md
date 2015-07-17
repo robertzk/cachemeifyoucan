@@ -1,3 +1,7 @@
+# Version 0.2.0.6
+
+ * Important bugfix for sharding.
+
 # Version 0.2.0.5
 
  * Replace RPostgreSQL with rstats-db/RPostgres.

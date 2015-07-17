@@ -19,12 +19,16 @@ describe("cache function", {
     with_connection(dbconn(), {
       lapply(dbListTables(conn), function(t) dbRemoveTable(conn, t))
       cached_fcn <- cache(batch_huge_data, key = c(key = "id"), c("version"), con = conn, prefix = "huge_data")
-      # Populate the cache and make sure that the results are equal
-      expect_equal(dim(bd <- batch_huge_data(1:10)), dim(cached_fcn(1:10)))
-      # Make sure we're reading from cache and it's fast now!
-      takes_less_than(1)(tmp <- cached_fcn(1:10))
-      # And the results are still correct
-      expect_equal(dim(bd), dim(tmp))
+      lapply(list(1:10, 1:20), function(ids) {
+        # Populate the cache and make sure that the results are equal
+        expect_equal(dim(bd <- batch_huge_data(ids)), dim(cached_fcn(ids)))
+        # Make sure we're reading from cache and it's fast now!
+        takes_less_than(1)(tmp <- cached_fcn(ids))
+        # And the results are still correct
+        expect_equal(dim(bd), dim(tmp))
+      })
+      # And now everything is so cached
+      takes_less_than(1)(tmp <- cached_fcn(1:20))
     })
   })
 
