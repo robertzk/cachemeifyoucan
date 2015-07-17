@@ -320,12 +320,12 @@ execute <- function(fcn_call) {
   ## Grab the new/old keys
   keys <- fcn_call$call[[fcn_call$key]]
 
-  if (fcn_call$force) {
-    uncached_keys <- keys
+  uncached_keys <- if (fcn_call$force) {
+    remove_old_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+    keys
   } else {
-    uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+    get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
   }
-  remove_old_key(fcn_call$con, fcn_call$table, uncached_keys, fcn_call$output_key)
 
   ## If some keys were populated by another process, we will keep track of those
   ## so that we do not have to duplicate the caching effort.

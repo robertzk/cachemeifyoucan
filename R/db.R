@@ -410,12 +410,11 @@ get_new_key <- function(dbconn, tbl_name, ids, key) {
 #' @param key character. Identifier of database table.
 remove_old_key <- function(dbconn, tbl_name, ids, key) {
   if (length(ids) == 0) return(invisible(NULL))
-  if (!DBI::dbExistsTable(dbconn, tbl_name)) return(invisible(NULL))
   id_column_name <- get_hashed_names(key)
   shards <- get_shards_for_table(dbconn, tbl_name)
   if (NROW(shards) == 0) return(invisible(NULL))
   ## In this case though, we need to delete from all shards to keep them consistent
-  sapply(shards, function(shard) {
+  sapply(shards$shard_name, function(shard) {
     DBI::dbGetQuery(dbconn, paste0(
       "DELETE FROM ", shard, " WHERE ", id_column_name, " IN (",
       paste(ids, collapse = ","), ")"))
@@ -467,9 +466,6 @@ db_connection <- function(database.yml, env = "cache",
   ## Authorization arguments needed by the DBMS instance
   ## Enforce rstats-db/RPostgres.
   # TODO: (RK) Inform user if they forgot database.yml entries.
-  if (!grepl("postgres", config.database$adapter, ignore.case = TRUE)) {
-    stop("Currently, only the postgres adapter is supported.")
-  }
   do.call(DBI::dbConnect, append(list(drv = DBI::dbDriver('Postgres')),
     config.database[!names(config.database) %in% "adapter"]))
 }
