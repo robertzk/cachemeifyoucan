@@ -1,3 +1,7 @@
+# Version 0.2.0.7
+
+ * Added cache migrations and slightly refactored how new shards are created.
+
 # Version 0.2.0.6
 
  * Important bugfix for sharding.
