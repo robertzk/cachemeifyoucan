@@ -208,7 +208,8 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     ## All data-containing tables will start with prefix *shard#{n}_*
     newshards <- paste0("shard", seq(numshards), "_", digest::digest(tblname))
     if (NROW(shards) > 0) {
-      unique(c(shards, newshards))
+      ## only generate new shard names for shards that don't exist!
+      unique(c(shards, newshards[-seq(NROW(shards))]))
     } else newshards
   }
 
