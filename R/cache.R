@@ -464,7 +464,7 @@ error_fn <- function(data) {
 #' without_cache(some_cached_function(1:5))
 #' }
 without_cache <- function(expr) {
-  old_opts <- options(cachemeifyoucan.cache = TRUE)  
+  old_opts <- options(cachemeifyoucan.cache = FALSE)
   on.exit(options(old_opts))
   force(expr)
 }
