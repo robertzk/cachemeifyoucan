@@ -374,11 +374,6 @@ try_write_data_safely <- function(...) {
   try(write_data_safely(...))
 }
 
-match_all <- function(keys, df, column_name) {
-  m <- match(keys, df[[column_name]])
-  df(order(m))
-}
-
 compute_uncached_data <- function(fcn_call, uncached_keys) {
   error_fn(data_injector(fcn_call, uncached_keys, FALSE))
 }
