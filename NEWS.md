@@ -1,3 +1,9 @@
+# Version 0.2.0.8
+
+* Introduce some changes to the `merge2` helper that will ensure
+  legacy caches that have discrepancy between shards will not
+  truncate their output.
+
 # Version 0.2.0.7
 
  * Added cache migrations and slightly refactored how new shards are created.
