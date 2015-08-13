@@ -1,3 +1,8 @@
+# Version 0.2.0.9
+
+* On second thought, don't store the shards in legacy cache
+  warnings in globalenv for debugging, since they could be huge.
+
 # Version 0.2.0.8
 
 * Introduce some changes to the `merge2` helper that will ensure
