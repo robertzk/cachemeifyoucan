@@ -424,8 +424,8 @@ data_injector_cached <- function(fcn_call, keys) {
   shards <- get_shards_for_table(fcn_call$con, fcn_call$table)[[1]]
   lst <- lapply(shards, function(shard) read_df_from_a_shard(fcn_call, keys, shard))
   if (length(unique(vapply(lst, NROW, integer(1)))) > 1) {
-    assign(".keys",  keys,   envir = globalenv())
-    assign("shards", shards, envir = globalenv())
+    assign(".keys",   keys,   envir = globalenv())
+    assign(".shards", shards, envir = globalenv())
 
     stop("cachemeifyoucan detected an integrity error: All shards should ",
          "have the same number of rows. Primary keys and shard table ",
