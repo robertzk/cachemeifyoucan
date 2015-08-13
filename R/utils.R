@@ -10,6 +10,10 @@ verbose <- function() { isTRUE(getOption("cachemeifyoucan.verbose", FALSE)) }
 MAX_COLUMNS_PER_SHARD <- 550
 
 merge2 <- function(list_of_dataframes, id_name) {
-  Reduce(function(x, y) { merge(x[c(id_name, setdiff(colnames(x), colnames(y)))], y, by = id_name) },
-         list_of_dataframes)
+  list_of_dataframes <- list_of_dataframes[
+    order(vapply(list_of_dataframes, NROW, integer(1)), decreasing = TRUE)
+  ]
+  Reduce(function(x, y) { 
+    merge(x[c(id_name, setdiff(colnames(x), colnames(y)))], y, by = id_name, all.x = TRUE)
+  }, list_of_dataframes)
 }
