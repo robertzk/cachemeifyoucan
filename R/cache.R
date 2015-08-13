@@ -374,6 +374,11 @@ try_write_data_safely <- function(...) {
   try(write_data_safely(...))
 }
 
+match_all <- function(keys, df, column_name) {
+  m <- match(keys, df[[column_name]])
+  df(order(m))
+}
+
 compute_uncached_data <- function(fcn_call, uncached_keys) {
   error_fn(data_injector(fcn_call, uncached_keys, FALSE))
 }
@@ -422,13 +427,13 @@ data_injector_cached <- function(fcn_call, keys) {
     assign(".keys",   keys,   envir = globalenv())
     assign(".shards", shards, envir = globalenv())
 
-    stop("cachemeifyoucan detected an integrity error: All shards should ",
-         "have the same number of rows. Primary keys and shard table ",
-         "names have been stored in the ", sQuote(".keys"), " and ",
-         sQuote(".shards"), " global variables, respectively. If this is ",
-         "not an error you understand, please report it to the ",
-         "cachemeifyoucan developers at github.com/robertzk/cachemeifyoucan",
-         call. = FALSE)
+    warning("cachemeifyoucan detected an integrity error: All shards should ",
+      "have the same number of rows. Primary keys and shard table ",
+      "names have been stored in the ", sQuote(".keys"), " and ",
+      sQuote(".shards"), " global variables, respectively. If this is ",
+      "not an error you understand, please report it to the ",
+      "cachemeifyoucan developers at github.com/robertzk/cachemeifyoucan",
+      call. = FALSE)
   }
   merge2(lst, fcn_call$output_key)
 }
