@@ -5,7 +5,9 @@
 #' @return the table name. This will just be \code{"prefix_"}
 #'   appended with the MD5 hash of the digest of the \code{salt}.
 table_name <- function(prefix, salt) {
-  tolower(paste0(prefix, "_", digest::digest(salt)))
+  tblname <- tolower(paste0(prefix, "_", digest::digest(salt)))
+  logg('Using table name: ', tblname)
+  tblname
 }
 
 #' Fetch the map of column names.
@@ -299,6 +301,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
   tryCatch({
     ## Find the appropriate shards for this dataframe and tablename
     shard_names <- get_shard_names(df, tblname)
+    logg('Using shards: ', shard_names)
     ## Create references for these shards if needed
     write_table_shard_map(tblname, shard_names)
     ## Split the dataframe into the appropriate shards
