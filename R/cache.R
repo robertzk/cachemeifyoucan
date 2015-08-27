@@ -364,7 +364,7 @@ execute <- function(fcn_call) {
   cached_keys <- Reduce(setdiff, list(keys, uncached_keys, intercepted_keys$keys))
   cached_data <- compute_cached_data(fcn_call, cached_keys)
 
-  data <- plyr::rbind.fill(uncached_data, cached_data)
+  data <- unique(plyr::rbind.fill(uncached_data, cached_data))
   ## This seems to cause a bug.
   ## Have to sort to conform with order of keys.
   data[order(match(data[[fcn_call$output_key]], keys), na.last = NA), , drop = FALSE]
@@ -453,4 +453,3 @@ error_fn <- function(data) {
   }
   data
 }
-
