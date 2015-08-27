@@ -1,3 +1,7 @@
+# Version 0.2.0.10
+
+* Ensure uniqueness of the response of the caching layer.
+
 # Version 0.2.0.9
 
 * On second thought, don't store the shards in legacy cache
