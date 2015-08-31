@@ -1,3 +1,8 @@
+# Version 0.2.0.11
+
+* Debug mode, triggered by `cachemeifyoucan.debug` option. Set it to true
+  to see the gory metadata internals of underlying postgres tables.
+
 # Version 0.2.0.10
 
 * Ensure uniqueness of the response of the caching layer.
