@@ -222,6 +222,23 @@ cached_sql_table <- cachemeifyoucan::cache(grab_sql_table,
 wrap_sql_table <- function(table_name, yr, mth, dbname = 'default') {
   grab_sql_table(table_name = table_name, year = yr, month = mth, dbname = dbname)
 }
+
+###
+# Debugging option `cachemeifyoucan.debug`
+###
+
+Sometimes it might be interesting to take a look at the underlying database
+tables for debugging purposes. However, the contents of the database are
+somewhat obfuscated. If you set `cachemeifyoucan.debug` option to TRUE will
+every time you execute a cached function you will see some additional metadata
+printed out, helping you navigate the database. An example output looks like this:
+
+Using table name: amazon_data_c3204c0a47beb9238a787058d4f03834
+Shard dimensions:
+  shard1_f8e8e2b41ac5c783d0954ce588f220fc: 45 rows * 308 columns
+11 cached keys
+5 uncached keys
+
 }
 }
 
