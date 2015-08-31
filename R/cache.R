@@ -362,12 +362,37 @@ execute <- function(fcn_call) {
   ## keys may have been populated by a different R process (in case of parallel)
   ## cache requests, we need to query *now* which keys are cached.
   cached_keys <- Reduce(setdiff, list(keys, uncached_keys, intercepted_keys$keys))
+
+  ## Log cache metadata if in debug mode
+  debug_info(fcn_call, cached_keys, uncached_keys)
+
+  ## Actually compute for the uncached keys
   cached_data <- compute_cached_data(fcn_call, cached_keys)
 
   data <- unique(plyr::rbind.fill(uncached_data, cached_data))
   ## This seems to cause a bug.
   ## Have to sort to conform with order of keys.
   data[order(match(data[[fcn_call$output_key]], keys), na.last = NA), , drop = FALSE]
+}
+
+debug_info <- function(fcn_call, cached_keys, uncached_keys) {
+  if (isTRUE(getOption('cachemeifyoucan.verbose'))) {
+    message('Using table name: ', fcn_call$table)
+    shard_names <- get_shards_for_table(fcn_call$con, fcn_call$table)$shard_name
+    message('Shard dimensions:')
+    lapply(shard_names, function(name) {
+      if (DBI::dbExistsTable(fcn_call$con, name)) {
+        num_rows <- DBI::dbGetQuery(fcn_call$con, paste0("SELECT count(*) from ", name))[1, 1]
+        num_cols <- DBI::dbGetQuery(fcn_call$con,
+          paste0("select count(column_name) from information_schema.columns where table_name='", name, "'"))[1, 1]
+        message('  ', name, ': ', num_rows, ' rows * ', num_cols, ' columns')
+      } else {
+        message('  ', name, ': new shard')
+      }
+    })
+    message(length(cached_keys), ' cached keys')
+    message(length(uncached_keys), ' uncached keys')
+  }
 }
 
 try_write_data_safely <- function(...) {
