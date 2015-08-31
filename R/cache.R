@@ -376,7 +376,7 @@ execute <- function(fcn_call) {
 }
 
 debug_info <- function(fcn_call, cached_keys, uncached_keys) {
-  if (isTRUE(getOption('cachemeifyoucan.verbose'))) {
+  if (isTRUE(getOption('cachemeifyoucan.debug'))) {
     message('Using table name: ', fcn_call$table)
     shard_names <- get_shards_for_table(fcn_call$con, fcn_call$table)$shard_name
     message('Shard dimensions:')
