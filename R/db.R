@@ -498,6 +498,6 @@ build_connection <- function(con, env) {
 #' @return `TRUE` or `FALSE` indicating if the database connection is good.
 #' @export
 is_db_connected <- function(con) {
-  res <- tryCatch(DBI::dbGetQuery(con, "SELECT 1")[1,1], error = function(e) NULL)
+  res <- tryCatch(DBI::dbGetQuery(con, "SELECT 1")[1, 1], error = function(e) NULL)
   if (is.null(res) || res != 1) FALSE else TRUE
 }
