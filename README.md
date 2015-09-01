@@ -40,7 +40,7 @@ cache: # We only support postgres for now. Make sure you have instaled
   adapter: PostgreSQL
   host: localhost     # Or your database host
   dbname: name        # Name of the caching database  
-  user: username      # The user name for the database connection 
+  user: username      # The user name for the database connection
   password: password  # The password for the database connection
 ```
 
@@ -237,6 +237,23 @@ has 'mth' and 'yr' columns, you could instead cache the wrapper:
 wrap_sql_table <- function(table_name, yr, mth, dbname = 'default') {
   grab_sql_table(table_name = table_name, year = yr, month = mth, dbname = dbname)
 }
+```
+
+# Debugging
+
+Sometimes it might be interesting to take a look at the underlying database
+tables for debugging purposes. However, the contents of the database are
+somewhat obfuscated. If you set `cachemeifyoucan.debug` option to TRUE will
+every time you execute a cached function you will see some additional
+metadata printed out, helping you navigate the database.
+An example output looks like this:
+
+```
+Using table name: amazon_data_c3204c0a47beb9238a787058d4f03834
+Shard dimensions:
+  shard1_f8e8e2b41ac5c783d0954ce588f220fc: 45 rows * 308 columns
+11 cached keys
+5 uncached keys
 ```
 
 # Testing
