@@ -1,3 +1,7 @@
+# Version 0.2.1.1
+
+* Restore column names from existing cache db when using `force.`.
+
 # Version 0.2.0.10
 
 * Ensure uniqueness of the response of the caching layer.
