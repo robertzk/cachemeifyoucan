@@ -1,4 +1,4 @@
-# Version 0.2.0.11
+# Version 0.2.1
 
 * Debug mode, triggered by `cachemeifyoucan.debug` option. Set it to true
   to see the gory metadata internals of underlying postgres tables.
