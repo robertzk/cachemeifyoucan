@@ -1,3 +1,7 @@
+# Version 0.2.1.1
+
+* Restore column names from existing cache db when using `force.`.
+
 # Version 0.2.1
 
 * Debug mode, triggered by `cachemeifyoucan.debug` option. Set it to true

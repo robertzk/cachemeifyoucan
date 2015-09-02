@@ -387,6 +387,13 @@ execute <- function(fcn_call) {
   cached_data <- compute_cached_data(fcn_call, cached_keys)
 
   data <- unique(plyr::rbind.fill(uncached_data, cached_data))
+  if (fcn_call$force) {
+    ## restore column names using existing cache columns
+    old_columns <- get_column_names_from_table(fcn_call)
+    tmp_df <- setNames(data.frame(matrix(ncol = length(old_columns), nrow = 0)), old_columns)
+    ## rbind.fill with a 0-row dataframe will set the missing columns to NA, just what we want
+    data <- plyr::rbind.fill(data, tmp_df)
+  }
   ## This seems to cause a bug.
   ## Have to sort to conform with order of keys.
   data[order(match(data[[fcn_call$output_key]], keys), na.last = NA), , drop = FALSE]
@@ -418,6 +425,21 @@ try_write_data_safely <- function(...) {
 
 compute_uncached_data <- function(fcn_call, uncached_keys) {
   error_fn(data_injector(fcn_call, uncached_keys, FALSE))
+}
+
+get_column_names_from_table <- function(fcn_call) {
+  ## Fetch one row from each corresponding shard
+  ## omitting the id column
+  ## and return a vector of column names
+  shards <- get_shards_for_table(fcn_call$con, fcn_call$table)[[1]]
+  lst <- lapply(shards, function(shard) {
+    df <- if (DBI::dbExistsTable(fcn_call$con, shard))
+      DBI::dbGetQuery(fcn_call$con, paste0("SELECT * from ", shard, " LIMIT 1"))
+    else data.frame()
+    as.character(setdiff(colnames(df), fcn_call$output_key))
+  })
+  ## We don't really have to unique, but better safe than sorry!
+  unique(c(fcn_call$output_key, translate_column_names(unlist(lst), fcn_call$con)))
 }
 
 compute_cached_data <- function(fcn_call, cached_keys) {
