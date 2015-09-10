@@ -334,8 +334,8 @@ write_data_safely <- function(dbconn, tblname, df, key) {
       new_names <- c(new_names, id_cols)
       missing_cols <- !is.element(new_names, colnames(one_row))
       # TODO: (RK) Check reverse, that we're not missing any already-present columns
-      class_map <- list(integer = 'real', numeric = 'real', factor = 'text',
-                        double = 'real', character = 'text', logical = 'text')
+      class_map <- list(integer = 'numeric', numeric = 'numeric', factor = 'text',
+                        double = 'numeric', character = 'text', logical = 'text')
       removes <- integer(0)
       for (index in which(missing_cols)) {
         col <- new_names[index]

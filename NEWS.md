@@ -1,3 +1,10 @@
+# Version 0.2.1.2
+
+* Numeric values were being recorded using the `real` data type,
+  which only supports [6 digits](http://www.postgresql.org/docs/9.1/static/datatype-numeric.html) 
+  of precision. This was fixed by switching these column types to
+  the `numeric` data type.
+
 # Version 0.2.1.1
 
 * Restore column names from existing cache db when using `force.`.
