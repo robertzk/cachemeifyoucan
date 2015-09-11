@@ -1,3 +1,8 @@
+# Version 0.2.1.3
+
+* Added a `clear_cache` helper to help the user wipe the caching layer
+  due to erroneous population.
+
 # Version 0.2.1.2
 
 * Numeric values were being recorded using the `real` data type,

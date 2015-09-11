@@ -1,7 +1,7 @@
 Package: cachemeifyoucan
 Type: Package
 Title: Cache Me If You Can
-Version: 0.2.1.2
+Version: 0.2.1.3
 Description: One of the most frustrating parts about being a data scientist
     is waiting for data or other large downloads. This package offers a caching
     layer for arbitrary functions that relies on a PostgreSQL backend.
