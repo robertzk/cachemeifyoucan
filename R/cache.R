@@ -328,7 +328,7 @@ build_cached_function <- function(cached_function) {
     )
   })
 
-  class(cached_function) <- append("cached_function", class(cached_function))
+  class(cached_function) <- c("cached_function", class(cached_function))
   cached_function
 }
 
@@ -517,3 +517,9 @@ error_fn <- function(data) {
   }
   data
 }
+
+prefix <- function(cached_function) {
+  stopifnot(is(cached_function, "cached_function"))
+  environment(cached_function)$`_prefix`
+}
+
