@@ -510,3 +510,20 @@ is_db_connected <- function(con) {
   res <- tryCatch(DBI::dbGetQuery(con, "SELECT 1")[1, 1], error = function(e) NULL)
   if (is.null(res) || res != 1) FALSE else TRUE
 }
+
+dbconn <- function(fn) {
+  stopifnot(is(fn, "cached_function"))
+
+  # TODO: (RK) Remove this duplication (see cache.R)
+  `_con` <- environment(fn)$`_con`
+  `_con_build` <- environment(fn)$`_con_build`
+  if (is.null(`_con`) || !is_db_connected(`_con`)) {
+    if (!is.null(`_con_build`[[1]])) {
+      `_con` <- do.call(cachemeifyoucan:::build_connection, `_con_build`)
+    } else {
+      stop("Cannot re-establish database connection (caching layer)!")
+    }
+  }
+  `_con`
+}
+

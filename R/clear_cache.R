@@ -42,6 +42,14 @@ clear_cache.character <- function(fn, ...) {
   ## and we use `alist` to avoid evaluating the arguments straight away.
   if (length(eval(substitute(alist(...)))) > 0) {
     # TODO: (RK) Support partial salts by storing JSON in shards map table.
+    salt <- cache_salt(list(...))
+  } else {
+    ## We will use this to regex match on tables matching all such salts.
+    salt <- '[a-f0-9]{32}'    
   }
+
+  regex <- paste0("^", fn, "_", salt, "$")
+  
+  # TODO: (RK) Clear cache using dbconn(fn)
 }
 
