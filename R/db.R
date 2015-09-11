@@ -5,7 +5,16 @@
 #' @return the table name. This will just be \code{"prefix_"}
 #'   appended with the MD5 hash of the digest of the \code{salt}.
 table_name <- function(prefix, salt) {
-  tolower(paste0(prefix, "_", digest::digest(salt)))
+  tolower(paste0(prefix, "_", cache_salt(salt)))
+}
+
+#' Compute the digest of a database salt.
+#'
+#' @param salt list. Salt for a cached table, i.e., the list of arguments
+#'   passed to the function that necessitate creation of a new table.
+#' @return the MD5 digest (32 hexadecimal digit string).
+cache_salt <- function(salt) {
+  digest::digest(salt)
 }
 
 #' Fetch the map of column names.
