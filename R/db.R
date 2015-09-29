@@ -143,7 +143,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
            "column ending with '_id'")
   } else {
     id_cols <- key
-    if (!is.integer(df[[key]])) {
+    if (!is.integer(df[[key]]) && is.numeric(df[[key]])) {
       # TODO: (RK) Check if coercion is possible.
       df[[key]] <- as.integer(df[[key]])
     }
