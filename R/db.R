@@ -86,15 +86,25 @@ add_index <- function(dbconn, tblname, key, idx_name) {
 #' @param dbconn SQLConnection. A database connection.
 #' @param tblname character. Database table name.
 #' @param df data frame. The data frame to insert.
-dbWriteTableUntilSuccess <- function(dbconn, tblname, df) {
-  if (DBI::dbExistsTable(dbconn, tblname))
+dbWriteTableUntilSuccess <- function(dbconn, tblname, df, append = FALSE, row.names = NA) {
+  if (DBI::dbExistsTable(dbconn, tblname) && !isTRUE(append)) {
     DBI::dbRemoveTable(dbconn, tblname)
-  success <- FALSE
-  df[, vapply(df, function(x) all(is.na(x)), logical(1))] <- as.character(NA)
-  while (!success) {
-    DBI::dbWriteTable(dbconn, tblname, df, append = FALSE, row.names = FALSE)
-    num_rows <- DBI::dbGetQuery(dbconn, paste0('SELECT COUNT(*) FROM ', tblname))
-    if (num_rows == nrow(df)) success <- TRUE
+  }
+  if (any(is.na(df))) {
+    df[, vapply(df, function(x) all(is.na(x)), logical(1))] <- as.character(NA)
+  }
+
+  repeat {
+    class_map <- list(integer = 'bigint', numeric = 'double precision', factor = 'text',
+                      double = 'double precision', character = 'text', logical = 'text')
+    field_types <- sapply(sapply(df, class), function(klass) class_map[[klass]])
+    DBI::dbWriteTable(dbconn, tblname, df, append = append,
+                      row.names = row.names, field.types = field_types)
+    #TODO(kirill): repeat maximum of N times
+    if (!isTRUE(append)) {
+      num_rows <- DBI::dbGetQuery(dbconn, paste0('SELECT COUNT(*) FROM ', tblname))
+      if (num_rows == nrow(df)) break
+    } else break
   }
 }
 
@@ -133,8 +143,13 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     if (length(id_cols) == 0)
       stop("The data you are writing to the database must contain at least one ",
            "column ending with '_id'")
-  } else
+  } else {
     id_cols <- key
+    if (!is.integer(df[[key]]) && is.numeric(df[[key]])) {
+      # TODO: (RK) Check if coercion is possible.
+      df[[key]] <- as.integer(df[[key]])
+    }
+  }
 
   write_column_names_map <- function(raw_names) {
     hashed_names <- get_hashed_names(raw_names)
@@ -148,7 +163,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
 
     ## Store the map of raw to MD5'ed column names in the column_names table.
     if (!DBI::dbExistsTable(dbconn, 'column_names'))
-      dbWriteTableUntilSuccess(dbconn, 'column_names', column_map)
+      dbWriteTableUntilSuccess(dbconn, 'column_names', column_map, append = FALSE)
     else {
       raw_names <- DBI::dbGetQuery(dbconn, 'SELECT raw_name FROM column_names')[[1]]
       column_map <- column_map[!is.element(column_map$raw_name, raw_names), ]
@@ -176,7 +191,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
 
     ## Store the map of logical table names to physical shards in the table_shard_map table.
     if (!DBI::dbExistsTable(dbconn, 'table_shard_map')) {
-      dbWriteTableUntilSuccess(dbconn, 'table_shard_map', table_shard_map)
+      dbWriteTableUntilSuccess(dbconn, 'table_shard_map', table_shard_map, append = FALSE)
     } else {
       shards <- DBI::dbGetQuery(dbconn, paste0("SELECT shard_name FROM table_shard_map WHERE table_name='", tblname,"'"))
       if (NROW(shards) > 0) {
@@ -291,7 +306,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     df[to_chars] <- lapply(df[to_chars], as.character)
 
     ## Write out to postgres
-    dbWriteTable(dbconn, tblname, df, row.names = FALSE, append = append)
+    dbWriteTableUntilSuccess(dbconn, tblname, df, row.names = FALSE, append = append)
   }
 
   ## Use transactions!
@@ -334,8 +349,8 @@ write_data_safely <- function(dbconn, tblname, df, key) {
       new_names <- c(new_names, id_cols)
       missing_cols <- !is.element(new_names, colnames(one_row))
       # TODO: (RK) Check reverse, that we're not missing any already-present columns
-      class_map <- list(integer = 'numeric', numeric = 'numeric', factor = 'text',
-                        double = 'numeric', character = 'text', logical = 'text')
+      class_map <- list(integer = 'bigint', numeric = 'double precision', factor = 'text',
+                        double = 'double precision', character = 'text', logical = 'text')
       removes <- integer(0)
       for (index in which(missing_cols)) {
         col <- new_names[index]
@@ -357,7 +372,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
         df[, raw_names] <- lapply(sapply(one_row[, missing_cols], class), as, object = NA)
       }
 
-      write_column_hashed_data(df, tblname)
+      write_column_hashed_data(df, tblname, append = TRUE)
     })
     },
     warning = function(w) {

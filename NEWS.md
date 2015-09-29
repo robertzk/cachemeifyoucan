@@ -1,3 +1,9 @@
+# Version 0.2.1.3
+
+* Using `double precision` types during appends, as well as
+  correctly setting database types upon table creation due
+  to RPostgres bug.
+
 # Version 0.2.1.2
 
 * Numeric values were being recorded using the `real` data type,
