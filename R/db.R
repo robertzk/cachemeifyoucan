@@ -90,19 +90,21 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df, append = FALSE, row.na
   if (DBI::dbExistsTable(dbconn, tblname) && !isTRUE(append)) {
     DBI::dbRemoveTable(dbconn, tblname)
   }
-  success <- FALSE
   if (any(is.na(df))) {
     df[, vapply(df, function(x) all(is.na(x)), logical(1))] <- as.character(NA)
   }
 
-  while (!success) {
+  repeat {
     class_map <- list(integer = 'bigint', numeric = 'numeric', factor = 'text',
                       double = 'numeric', character = 'text', logical = 'text')
     field_types <- sapply(sapply(df, class), function(klass) class_map[[klass]])
     DBI::dbWriteTable(dbconn, tblname, df, append = append,
                       row.names = row.names, field.types = field_types)
-    num_rows <- DBI::dbGetQuery(dbconn, paste0('SELECT COUNT(*) FROM ', tblname))
-    if (num_rows == nrow(df)) success <- TRUE
+    #TODO(kirill): repeat maximum of N times
+    if (!isTRUE(append)) {
+      num_rows <- DBI::dbGetQuery(dbconn, paste0('SELECT COUNT(*) FROM ', tblname))
+      if (num_rows == nrow(df)) break
+    } else break
   }
 }
 
