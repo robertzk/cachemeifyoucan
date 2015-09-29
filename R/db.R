@@ -95,8 +95,8 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df, append = FALSE, row.na
   }
 
   repeat {
-    class_map <- list(integer = 'bigint', numeric = 'numeric', factor = 'text',
-                      double = 'numeric', character = 'text', logical = 'text')
+    class_map <- list(integer = 'bigint', numeric = 'double precision', factor = 'text',
+                      double = 'double precision', character = 'text', logical = 'text')
     field_types <- sapply(sapply(df, class), function(klass) class_map[[klass]])
     DBI::dbWriteTable(dbconn, tblname, df, append = append,
                       row.names = row.names, field.types = field_types)
@@ -349,8 +349,8 @@ write_data_safely <- function(dbconn, tblname, df, key) {
       new_names <- c(new_names, id_cols)
       missing_cols <- !is.element(new_names, colnames(one_row))
       # TODO: (RK) Check reverse, that we're not missing any already-present columns
-      class_map <- list(integer = 'bigint', numeric = 'numeric', factor = 'text',
-                        double = 'numeric', character = 'text', logical = 'text')
+      class_map <- list(integer = 'bigint', numeric = 'double precision', factor = 'text',
+                        double = 'double precision', character = 'text', logical = 'text')
       removes <- integer(0)
       for (index in which(missing_cols)) {
         col <- new_names[index]
