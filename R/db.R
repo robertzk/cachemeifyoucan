@@ -86,16 +86,17 @@ add_index <- function(dbconn, tblname, key, idx_name) {
 #' @param dbconn SQLConnection. A database connection.
 #' @param tblname character. Database table name.
 #' @param df data frame. The data frame to insert.
-dbWriteTableUntilSuccess <- function(dbconn, tblname, df, ...) {
+dbWriteTableUntilSuccess <- function(dbconn, tblname, df, append = FALSE, row.names = NA) {
   if (DBI::dbExistsTable(dbconn, tblname))
     DBI::dbRemoveTable(dbconn, tblname)
   success <- FALSE
   df[, vapply(df, function(x) all(is.na(x)), logical(1))] <- as.character(NA)
   while (!success) {
-    class_map <- list(integer = 'double precision', numeric = 'double precision', factor = 'text',
-                      double = 'double precision', character = 'text', logical = 'text')
+    class_map <- list(integer = 'numeric', numeric = 'numeric', factor = 'text',
+                      double = 'numeric', character = 'text', logical = 'text')
     field_types <- sapply(sapply(df, class), function(klass) class_map[[klass]])
-    DBI::dbWriteTable(dbconn, tblname, df, ..., field.types = field_types)
+    DBI::dbWriteTable(dbconn, tblname, df, append = append,
+                      row.names = row.names, field.types = field_types)
     num_rows <- DBI::dbGetQuery(dbconn, paste0('SELECT COUNT(*) FROM ', tblname))
     if (num_rows == nrow(df)) success <- TRUE
   }
@@ -337,8 +338,8 @@ write_data_safely <- function(dbconn, tblname, df, key) {
       new_names <- c(new_names, id_cols)
       missing_cols <- !is.element(new_names, colnames(one_row))
       # TODO: (RK) Check reverse, that we're not missing any already-present columns
-      class_map <- list(integer = 'double precision', numeric = 'double precision', factor = 'text',
-                        double = 'double precision', character = 'text', logical = 'text')
+      class_map <- list(integer = 'numeric', numeric = 'numeric', factor = 'text',
+                        double = 'numeric', character = 'text', logical = 'text')
       removes <- integer(0)
       for (index in which(missing_cols)) {
         col <- new_names[index]
