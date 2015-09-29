@@ -92,7 +92,7 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df, append = FALSE, row.na
   success <- FALSE
   df[, vapply(df, function(x) all(is.na(x)), logical(1))] <- as.character(NA)
   while (!success) {
-    class_map <- list(integer = 'numeric', numeric = 'numeric', factor = 'text',
+    class_map <- list(integer = 'bigint', numeric = 'numeric', factor = 'text',
                       double = 'numeric', character = 'text', logical = 'text')
     field_types <- sapply(sapply(df, class), function(klass) class_map[[klass]])
     DBI::dbWriteTable(dbconn, tblname, df, append = append,
@@ -137,8 +137,13 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     if (length(id_cols) == 0)
       stop("The data you are writing to the database must contain at least one ",
            "column ending with '_id'")
-  } else
+  } else {
     id_cols <- key
+    if (!is.integer(df[[key]])) {
+      # TODO: (RK) Check if coercion is possible.
+      df[[key]] <- as.integer(df[[key]])
+    }
+  }
 
   write_column_names_map <- function(raw_names) {
     hashed_names <- get_hashed_names(raw_names)
@@ -152,7 +157,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
 
     ## Store the map of raw to MD5'ed column names in the column_names table.
     if (!DBI::dbExistsTable(dbconn, 'column_names'))
-      dbWriteTableUntilSuccess(dbconn, 'column_names', column_map)
+      dbWriteTableUntilSuccess(dbconn, 'column_names', column_map, append = FALSE)
     else {
       raw_names <- DBI::dbGetQuery(dbconn, 'SELECT raw_name FROM column_names')[[1]]
       column_map <- column_map[!is.element(column_map$raw_name, raw_names), ]
@@ -180,7 +185,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
 
     ## Store the map of logical table names to physical shards in the table_shard_map table.
     if (!DBI::dbExistsTable(dbconn, 'table_shard_map')) {
-      dbWriteTableUntilSuccess(dbconn, 'table_shard_map', table_shard_map)
+      dbWriteTableUntilSuccess(dbconn, 'table_shard_map', table_shard_map, append = FALSE)
     } else {
       shards <- DBI::dbGetQuery(dbconn, paste0("SELECT shard_name FROM table_shard_map WHERE table_name='", tblname,"'"))
       if (NROW(shards) > 0) {
@@ -338,7 +343,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
       new_names <- c(new_names, id_cols)
       missing_cols <- !is.element(new_names, colnames(one_row))
       # TODO: (RK) Check reverse, that we're not missing any already-present columns
-      class_map <- list(integer = 'numeric', numeric = 'numeric', factor = 'text',
+      class_map <- list(integer = 'bigint', numeric = 'numeric', factor = 'text',
                         double = 'numeric', character = 'text', logical = 'text')
       removes <- integer(0)
       for (index in which(missing_cols)) {
@@ -361,7 +366,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
         df[, raw_names] <- lapply(sapply(one_row[, missing_cols], class), as, object = NA)
       }
 
-      write_column_hashed_data(df, tblname)
+      write_column_hashed_data(df, tblname, append = TRUE)
     })
     },
     warning = function(w) {
