@@ -87,10 +87,14 @@ add_index <- function(dbconn, tblname, key, idx_name) {
 #' @param tblname character. Database table name.
 #' @param df data frame. The data frame to insert.
 dbWriteTableUntilSuccess <- function(dbconn, tblname, df, append = FALSE, row.names = NA) {
-  if (DBI::dbExistsTable(dbconn, tblname))
+  if (DBI::dbExistsTable(dbconn, tblname) && !isTRUE(append)) {
     DBI::dbRemoveTable(dbconn, tblname)
+  }
   success <- FALSE
-  df[, vapply(df, function(x) all(is.na(x)), logical(1))] <- as.character(NA)
+  if (any(is.na(df))) {
+    df[, vapply(df, function(x) all(is.na(x)), logical(1))] <- as.character(NA)
+  }
+
   while (!success) {
     class_map <- list(integer = 'bigint', numeric = 'numeric', factor = 'text',
                       double = 'numeric', character = 'text', logical = 'text')
