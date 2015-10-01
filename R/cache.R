@@ -236,14 +236,19 @@ cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_f
   ## Retain the same formal arguments as the base function.
   formals(cached_function) <- formals(uncached_function)
 
-  ## Check "force." name collision
-  if ("force." %in% names(formals(cached_function))) {
-    stop(sQuote("force."), " is a reserved argument in caching layer, ",
-         "collision with formals in the cached function.", call. = FALSE)
-  }
+  ## Check "force.", "dry." name collision
+  lapply(c("force.","dry." ), function(x) {
+    if (x %in% names(formals(cached_function))) {
+      stop(sQuote(x), " is a reserved argument in caching layer, ",
+      "collision with formals in the cached function.", call. = FALSE)
+    }
+  })
 
   ## Default force. argument to be FALSE
   formals(cached_function)$force. <- FALSE
+
+  ## Default dry. argument to be FALSE
+  formals(cached_function)$dry. <- FALSE
 
   ## Inject some values we will need in the body of the caching layer.
   environment(cached_function) <-
@@ -285,9 +290,14 @@ build_cached_function <- function(cached_function) {
     raw_call <- match.call()
     ## Strip function name but retain arguments.
     call     <- as.list(raw_call[-1])
+
     ## Strip away the force. parameter, which is reserved.
     is_force <- eval.parent(call$force.)
     call$force. <- NULL
+
+    ## Strip away the force. parameter, which is reserved.
+    is_dry <- eval.parent(call$dry.)
+    call$dry. <- NULL
 
     ## Evaluate function call parameters in the calling environment
     for (name in names(call)) {
@@ -316,16 +326,30 @@ build_cached_function <- function(cached_function) {
       }
     }
 
+    fcn_call <- cachemeifyoucan:::cached_function_call(
+      `_uncached_function`, call, parent.frame(),
+      tbl_name, `_key`, `_con`, force., `_batch_size`
+    )
+
+    ## Grab the new/old keys
+    keys <- fcn_call$call[[fcn_call$key]]
+
+    ## Check whether **dry.** was set
+    if (isTRUE(is_dry)) {
+      message("`dry.` detected. Doing a dry run and returning debug info...\n")
+      uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+      cached_keys <- setdiff(keys, uncached_keys)
+      cachemeifyoucan:::debug_info(fcn_call, cached_keys, uncached_keys)
+      return()
+    }
+
     ## Check whether **force.** was set
     if (isTRUE(is_force)) {
       force. <- TRUE
       message("`force.` detected. Overwriting cache...\n")
     } else force. <- FALSE
 
-    cachemeifyoucan:::execute(
-      cachemeifyoucan:::cached_function_call(`_uncached_function`, call,
-        parent.frame(), tbl_name, `_key`, `_con`, force., `_batch_size`)
-    )
+    cachemeifyoucan:::execute(fcn_call, keys)
   })
 
   class(cached_function) <- append("cached_function", class(cached_function))
@@ -333,15 +357,14 @@ build_cached_function <- function(cached_function) {
 }
 
 ## A helper function to execute a cached function call.
-execute <- function(fcn_call) {
-  ## Grab the new/old keys
-  keys <- fcn_call$call[[fcn_call$key]]
+execute <- function(fcn_call, keys) {
 
-  uncached_keys <- if (fcn_call$force) {
+  uncached_keys <- NULL
+
+  if (fcn_call$force) {
     remove_old_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
-    keys
   } else {
-    get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+    uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
   }
 
   ## If some keys were populated by another process, we will keep track of those
