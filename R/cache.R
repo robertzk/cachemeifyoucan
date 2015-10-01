@@ -295,7 +295,7 @@ build_cached_function <- function(cached_function) {
     is_force <- eval.parent(call$force.)
     call$force. <- NULL
 
-    ## Strip away the force. parameter, which is reserved.
+    ## Strip away the dry. parameter, which is reserved.
     is_dry <- eval.parent(call$dry.)
     call$dry. <- NULL
 
@@ -359,22 +359,20 @@ build_cached_function <- function(cached_function) {
 ## A helper function to execute a cached function call.
 execute <- function(fcn_call, keys) {
 
-  uncached_keys <- NULL
-
-  if (fcn_call$force) {
-    remove_old_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
-  } else {
-    uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
-  }
-
   ## If some keys were populated by another process, we will keep track of those
   ## so that we do not have to duplicate the caching effort.
   intercepted_keys <- list2env(list(keys = integer(0)))
 
-  compute_and_cache_data <- function(keys) {
+  compute_and_cache_data <- function(keys, force) {
     ## Re-query which keys are not cached, since someone else could have
     ## populated them in parallel (if another user requested the same IDs).
-    uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+    if (force) {
+      remove_old_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+      uncached_keys <- NULL
+    } else {
+      uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+    }
+
     intercepted_keys$keys <- c(intercepted_keys$keys, setdiff(keys, uncached_keys))
     keys <- uncached_keys
     if (!length(keys)) return(data.frame())
@@ -393,9 +391,9 @@ execute <- function(fcn_call, keys) {
       retry = 3,
       stop = TRUE
     )
-    uncached_data <- batched_fn(uncached_keys)
+    uncached_data <- batched_fn(uncached_keys, fcn_call$force)
   } else {
-    uncached_data <- compute_and_cache_data(uncached_keys)
+    uncached_data <- compute_and_cache_data(uncached_keys, fcn_call$force)
   }
 
   ## Since computing and caching data may take a long time and some of the
