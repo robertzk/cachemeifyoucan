@@ -383,7 +383,7 @@ execute <- function(fcn_call, keys) {
   }
 
   if (force) {
-    uncached_keys <- NULL
+    uncached_keys <- keys
   } else {
     uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
   }
