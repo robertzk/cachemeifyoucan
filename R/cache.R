@@ -326,6 +326,12 @@ build_cached_function <- function(cached_function) {
       }
     }
 
+    ## Check whether **force.** was set
+    if (isTRUE(is_force)) {
+      force. <- TRUE
+      message("`force.` detected. Overwriting cache...\n")
+    } else force. <- FALSE
+
     fcn_call <- cachemeifyoucan:::cached_function_call(
       `_uncached_function`, call, parent.frame(),
       tbl_name, `_key`, `_con`, force., `_batch_size`
@@ -343,12 +349,6 @@ build_cached_function <- function(cached_function) {
       return()
     }
 
-    ## Check whether **force.** was set
-    if (isTRUE(is_force)) {
-      force. <- TRUE
-      message("`force.` detected. Overwriting cache...\n")
-    } else force. <- FALSE
-
     cachemeifyoucan:::execute(fcn_call, keys)
   })
 
@@ -362,6 +362,7 @@ execute <- function(fcn_call, keys) {
   ## If some keys were populated by another process, we will keep track of those
   ## so that we do not have to duplicate the caching effort.
   intercepted_keys <- list2env(list(keys = integer(0)))
+
 
   compute_and_cache_data <- function(keys, force) {
     ## Re-query which keys are not cached, since someone else could have
@@ -379,6 +380,12 @@ execute <- function(fcn_call, keys) {
     uncached_data <- compute_uncached_data(fcn_call, keys)
     try_write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key)
     uncached_data
+  }
+
+  if (force) {
+    uncached_keys <- NULL
+  } else {
+    uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
   }
 
   if (length(uncached_keys) > fcn_call$batch_size &&
