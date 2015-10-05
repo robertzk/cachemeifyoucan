@@ -224,7 +224,7 @@
 #'
 #' }
 cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_function),
-                  env = "cache", batch_size = 100) {
+                  env = "cache", batch_size = 100, parallel = FALSE, ncores = parallel::detectCores()) {
   stopifnot(is.function(uncached_function),
     is.character(prefix), length(prefix) == 1,
     is.character(key), length(key) > 0,
@@ -368,7 +368,9 @@ execute <- function(fcn_call) {
       combination_strategy = plyr::rbind.fill,
       batchman.verbose = verbose(),
       retry = 3,
-      stop = TRUE
+      stop = TRUE,
+      ncores = ncores,
+      parallel = parallel
     )
     uncached_data <- batched_fn(uncached_keys)
   } else {
