@@ -412,24 +412,41 @@ execute <- function(fcn_call, keys) {
   data[order(match(data[[fcn_call$output_key]], keys), na.last = NA), , drop = FALSE]
 }
 
-debug_info <- function(fcn_call, cached_keys, uncached_keys) {
+debug_info <- function(fcn_call, keys) {
+  uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+  cached_keys <- setdiff(keys, uncached_keys)
+
+  shard_names <- get_shards_for_table(fcn_call$con, fcn_call$table)$shard_name
+  shard_info <- lapply(shard_names, function(name) {
+    if (DBI::dbExistsTable(fcn_call$con, name)) {
+      num_rows <- DBI::dbGetQuery(fcn_call$con, paste0("SELECT count(*) from ", name))[1, 1]
+      query <- paste0("select count(column_name) from information_schema.columns where table_name='", name, "'")
+      num_cols <- DBI::dbGetQuery(fcn_call$con, query)[1, 1]
+      paste0('  ', name, ': ', num_rows, ' rows * ', num_cols, ' columns')
+    } else {
+      paste0('  ', name, ': new shard')
+    }
+  })
+
   if (isTRUE(getOption('cachemeifyoucan.debug'))) {
-    message('Using table name: ', fcn_call$table)
-    shard_names <- get_shards_for_table(fcn_call$con, fcn_call$table)$shard_name
-    message('Shard dimensions:')
-    lapply(shard_names, function(name) {
-      if (DBI::dbExistsTable(fcn_call$con, name)) {
-        num_rows <- DBI::dbGetQuery(fcn_call$con, paste0("SELECT count(*) from ", name))[1, 1]
-        num_cols <- DBI::dbGetQuery(fcn_call$con,
-          paste0("select count(column_name) from information_schema.columns where table_name='", name, "'"))[1, 1]
-        message('  ', name, ': ', num_rows, ' rows * ', num_cols, ' columns')
-      } else {
-        message('  ', name, ': new shard')
-      }
-    })
-    message(length(cached_keys), ' cached keys')
-    message(length(uncached_keys), ' uncached keys')
+    msg <- pp(paste(
+      "Using table name: #{ fcn_call$table }",
+      "Shard dimensions:",
+      shard_info,
+      "#{ length(cached_keys) } cached keys",
+      "#{ length(uncached_keys) } uncached keys",
+      collapse = "\n",
+      sep = "\n"
+    ))
+    message(msg)
   }
+
+  list(
+    cached_keys = cached_keys,
+    uncached_keys = uncached_keys,
+    shard_names = shard_names,
+    table_name = fcn_call$table_name
+  )
 }
 
 try_write_data_safely <- function(...) {
