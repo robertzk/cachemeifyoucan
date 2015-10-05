@@ -8,7 +8,9 @@ dbconn <- function() {
          "the PostgreSQL console using ", dQuote("psql postgres"),
          " from the command line. ",
          "From within there, run ", dQuote(paste0("CREATE DATABASE travis; ",
-         "GRANT ALL PRIVILEGES ON DATABASE travis TO postgres;")), ")", call. = FALSE)
+         "GRANT ALL PRIVILEGES ON DATABASE travis TO postgres;")),
+         " You might also need to run ", dQuote("ALTER ROLE postgres WITH LOGIN;"),
+         ")", call. = FALSE)
   }
   conn
 }
