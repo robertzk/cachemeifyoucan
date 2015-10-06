@@ -445,7 +445,7 @@ debug_info <- function(fcn_call, keys) {
     cached_keys = cached_keys,
     uncached_keys = uncached_keys,
     shard_names = shard_names,
-    table_name = fcn_call$table_name
+    table_name = fcn_call$table
   )
 }
 
