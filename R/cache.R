@@ -430,13 +430,14 @@ debug_info <- function(fcn_call, keys) {
 
   if (isTRUE(getOption('cachemeifyoucan.debug'))) {
     msg <- pp(paste(
-      "Using table name: #{ fcn_call$table }",
-      "Shard dimensions:",
-      shard_info,
-      "#{ length(cached_keys) } cached keys",
-      "#{ length(uncached_keys) } uncached keys",
-      collapse = "\n",
-      sep = "\n"
+      c(
+        "Using table name: #{ fcn_call$table }",
+        "Shard dimensions:",
+        shard_info,
+        "#{ length(cached_keys) } cached keys",
+        "#{ length(uncached_keys) } uncached keys"
+      ),
+      collapse = "\n"
     ))
     message(msg)
   }
