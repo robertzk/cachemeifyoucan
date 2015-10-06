@@ -236,14 +236,19 @@ cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_f
   ## Retain the same formal arguments as the base function.
   formals(cached_function) <- formals(uncached_function)
 
-  ## Check "force." name collision
-  if ("force." %in% names(formals(cached_function))) {
-    stop(sQuote("force."), " is a reserved argument in caching layer, ",
-         "collision with formals in the cached function.", call. = FALSE)
-  }
+  ## Check "force.", "dry." name collision
+  lapply(c("force.","dry." ), function(x) {
+    if (x %in% names(formals(cached_function))) {
+      stop(sQuote(x), " is a reserved argument in caching layer, ",
+      "collision with formals in the cached function.", call. = FALSE)
+    }
+  })
 
   ## Default force. argument to be FALSE
   formals(cached_function)$force. <- FALSE
+
+  ## Default dry. argument to be FALSE
+  formals(cached_function)$dry. <- FALSE
 
   ## Inject some values we will need in the body of the caching layer.
   environment(cached_function) <-
@@ -285,9 +290,14 @@ build_cached_function <- function(cached_function) {
     raw_call <- match.call()
     ## Strip function name but retain arguments.
     call     <- as.list(raw_call[-1])
+
     ## Strip away the force. parameter, which is reserved.
     is_force <- eval.parent(call$force.)
     call$force. <- NULL
+
+    ## Strip away the dry. parameter, which is reserved.
+    is_dry <- eval.parent(call$dry.)
+    call$dry. <- NULL
 
     ## Evaluate function call parameters in the calling environment
     for (name in names(call)) {
@@ -322,10 +332,24 @@ build_cached_function <- function(cached_function) {
       message("`force.` detected. Overwriting cache...\n")
     } else force. <- FALSE
 
-    cachemeifyoucan:::execute(
-      cachemeifyoucan:::cached_function_call(`_uncached_function`, call,
-        parent.frame(), tbl_name, `_key`, `_con`, force., `_batch_size`)
+    fcn_call <- cachemeifyoucan:::cached_function_call(
+      `_uncached_function`, call, parent.frame(),
+      tbl_name, `_key`, `_con`, force., `_batch_size`
     )
+
+    ## Grab the new/old keys
+    keys <- fcn_call$call[[fcn_call$key]]
+
+    ## Check whether **dry.** was set
+    if (isTRUE(is_dry)) {
+      message("`dry.` detected. Doing a dry run and returning debug info...\n")
+      uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+      cached_keys <- setdiff(keys, uncached_keys)
+      cachemeifyoucan:::debug_info(fcn_call, cached_keys, uncached_keys)
+      return()
+    }
+
+    cachemeifyoucan:::execute(fcn_call, keys)
   })
 
   class(cached_function) <- append("cached_function", class(cached_function))
@@ -333,31 +357,35 @@ build_cached_function <- function(cached_function) {
 }
 
 ## A helper function to execute a cached function call.
-execute <- function(fcn_call) {
-  ## Grab the new/old keys
-  keys <- fcn_call$call[[fcn_call$key]]
-
-  uncached_keys <- if (fcn_call$force) {
-    remove_old_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
-    keys
-  } else {
-    get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
-  }
+execute <- function(fcn_call, keys) {
 
   ## If some keys were populated by another process, we will keep track of those
   ## so that we do not have to duplicate the caching effort.
   intercepted_keys <- list2env(list(keys = integer(0)))
 
-  compute_and_cache_data <- function(keys) {
+
+  compute_and_cache_data <- function(keys, force) {
     ## Re-query which keys are not cached, since someone else could have
     ## populated them in parallel (if another user requested the same IDs).
-    uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+    if (force) {
+      remove_old_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+      uncached_keys <- NULL
+    } else {
+      uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+    }
+
     intercepted_keys$keys <- c(intercepted_keys$keys, setdiff(keys, uncached_keys))
     keys <- uncached_keys
     if (!length(keys)) return(data.frame())
     uncached_data <- compute_uncached_data(fcn_call, keys)
     try_write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key)
     uncached_data
+  }
+
+  if (force) {
+    uncached_keys <- keys
+  } else {
+    uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
   }
 
   if (length(uncached_keys) > fcn_call$batch_size &&
@@ -370,9 +398,9 @@ execute <- function(fcn_call) {
       retry = 3,
       stop = TRUE
     )
-    uncached_data <- batched_fn(uncached_keys)
+    uncached_data <- batched_fn(uncached_keys, fcn_call$force)
   } else {
-    uncached_data <- compute_and_cache_data(uncached_keys)
+    uncached_data <- compute_and_cache_data(uncached_keys, fcn_call$force)
   }
 
   ## Since computing and caching data may take a long time and some of the
