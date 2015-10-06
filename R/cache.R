@@ -239,8 +239,8 @@ cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_f
   ## Check "force.", "dry." name collision
   lapply(c("force.", "dry."), function(x) {
     if (x %in% names(formals(cached_function))) {
-      stop(sQuote(x), " is a reserved argument in caching layer, ",
-      "collision with formals in the cached function.", call. = FALSE)
+      stop(sQuote(x), " is a reserved argument in cachemeifyoucan layer, ",
+      "collision with formals in the cachemeifyoucan function.", call. = FALSE)
     }
   })
 
@@ -429,16 +429,16 @@ debug_info <- function(fcn_call, keys) {
   })
 
   if (isTRUE(getOption('cachemeifyoucan.debug'))) {
-    msg <- pp(paste(
+    msg <- paste(
       c(
-        "Using table name: #{ fcn_call$table }",
+        paste0("Using table name: ", fcn_call$table),
         "Shard dimensions:",
         shard_info,
-        "#{ length(cached_keys) } cached keys",
-        "#{ length(uncached_keys) } uncached keys"
+        paste0(length(cached_keys)  , " cached keys"),
+        paste0(length(uncached_keys), " uncached keys")
       ),
       collapse = "\n"
-    ))
+    )
     message(msg)
   }
 
