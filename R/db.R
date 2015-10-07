@@ -407,7 +407,7 @@ get_new_key <- function(dbconn, tbl_name, ids, key) {
   } else {
     shards <- shards[[1]]
   }
-  if (!DBI::dbExistsTable(dbconn, shards[1])) return(integer(0))
+  if (!DBI::dbExistsTable(dbconn, shards[1])) return(ids)
   id_column_name <- get_hashed_names(key)
   ## We can check only the first shard because all shards have the same keys
   present_ids <- DBI::dbGetQuery(dbconn, paste0(
