@@ -224,7 +224,7 @@
 #'
 #' }
 cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_function),
-                  env = "cache", batch_size = 100, parallel = FALSE, ncores = parallel::detectCores()) {
+                  env = "cache", batch_size = 100) {
   stopifnot(is.function(uncached_function),
     is.character(prefix), length(prefix) == 1,
     is.character(key), length(key) > 0,
@@ -236,14 +236,19 @@ cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_f
   ## Retain the same formal arguments as the base function.
   formals(cached_function) <- formals(uncached_function)
 
-  ## Check "force." name collision
-  if ("force." %in% names(formals(cached_function))) {
-    stop(sQuote("force."), " is a reserved argument in caching layer, ",
-         "collision with formals in the cached function.", call. = FALSE)
-  }
+  ## Check "force.", "dry." name collision
+  lapply(c("force.", "dry."), function(x) {
+    if (x %in% names(formals(cached_function))) {
+      stop(sQuote(x), " is a reserved argument in cachemeifyoucan layer, ",
+      "collision with formals in the cachemeifyoucan function.", call. = FALSE)
+    }
+  })
 
   ## Default force. argument to be FALSE
   formals(cached_function)$force. <- FALSE
+
+  ## Default dry. argument to be FALSE
+  formals(cached_function)$dry. <- FALSE
 
   ## Inject some values we will need in the body of the caching layer.
   environment(cached_function) <-
@@ -285,9 +290,12 @@ build_cached_function <- function(cached_function) {
     raw_call <- match.call()
     ## Strip function name but retain arguments.
     call     <- as.list(raw_call[-1])
-    ## Strip away the force. parameter, which is reserved.
-    is_force <- eval.parent(call$force.)
+
+    ## Strip away the `dry.` and `force.` parameter, which are reserved.
+    is_force <- isTRUE(eval.parent(call$force.))
+    is_dry <- isTRUE(eval.parent(call$dry.))
     call$force. <- NULL
+    call$dry. <- NULL
 
     ## Evaluate function call parameters in the calling environment
     for (name in names(call)) {
@@ -317,15 +325,21 @@ build_cached_function <- function(cached_function) {
     }
 
     ## Check whether **force.** was set
-    if (isTRUE(is_force)) {
+    if (is_force) {
       force. <- TRUE
       message("`force.` detected. Overwriting cache...\n")
     } else force. <- FALSE
 
-    cachemeifyoucan:::execute(
-      cachemeifyoucan:::cached_function_call(`_uncached_function`, call,
-        parent.frame(), tbl_name, `_key`, `_con`, force., `_batch_size`, `_parallel`, `_ncores`)
-    )
+    fcn_call <- cachemeifyoucan:::cached_function_call(`_uncached_function`, call,
+      parent.frame(), tbl_name, `_key`, `_con`, force., `_batch_size`, `_parallel`, `_ncores`)
+
+    ## Grab the all keys
+    keys <- fcn_call$call[[fcn_call$key]]
+
+    ## Log cache metadata if in debug mode
+    status <- cachemeifyoucan:::debug_info(fcn_call, keys)
+
+    if (!is_dry) cachemeifyoucan:::execute(fcn_call, keys) else status
   })
 
   class(cached_function) <- append("cached_function", class(cached_function))
@@ -333,22 +347,18 @@ build_cached_function <- function(cached_function) {
 }
 
 ## A helper function to execute a cached function call.
-execute <- function(fcn_call) {
-  ## Grab the new/old keys
-  keys <- fcn_call$call[[fcn_call$key]]
-
-  uncached_keys <- if (fcn_call$force) {
-    remove_old_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
-    keys
-  } else {
-    get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
-  }
+execute <- function(fcn_call, keys) {
 
   ## If some keys were populated by another process, we will keep track of those
   ## so that we do not have to duplicate the caching effort.
   intercepted_keys <- list2env(list(keys = integer(0)))
 
-  compute_and_cache_data <- function(keys) {
+  compute_and_cache_data <- function(keys, overwrite = FALSE) {
+
+    if (isTRUE(overwrite)) {
+      remove_old_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+    }
+
     ## Re-query which keys are not cached, since someone else could have
     ## populated them in parallel (if another user requested the same IDs).
     uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
@@ -358,6 +368,12 @@ execute <- function(fcn_call) {
     uncached_data <- compute_uncached_data(fcn_call, keys)
     try_write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key)
     uncached_data
+  }
+
+  if (fcn_call$force) {
+    uncached_keys <- keys
+  } else {
+    uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
   }
 
   if (length(uncached_keys) > fcn_call$batch_size &&
@@ -372,18 +388,15 @@ execute <- function(fcn_call) {
       ncores = fcn_call$ncores,
       parallel = fcn_call$parallel
     )
-    uncached_data <- batched_fn(uncached_keys)
+    uncached_data <- batched_fn(uncached_keys, fcn_call$force)
   } else {
-    uncached_data <- compute_and_cache_data(uncached_keys)
+    uncached_data <- compute_and_cache_data(uncached_keys, fcn_call$force)
   }
 
   ## Since computing and caching data may take a long time and some of the
   ## keys may have been populated by a different R process (in case of parallel)
   ## cache requests, we need to query *now* which keys are cached.
   cached_keys <- Reduce(setdiff, list(keys, uncached_keys, intercepted_keys$keys))
-
-  ## Log cache metadata if in debug mode
-  debug_info(fcn_call, cached_keys, uncached_keys)
 
   ## Actually compute for the uncached keys
   cached_data <- compute_cached_data(fcn_call, cached_keys)
@@ -401,24 +414,42 @@ execute <- function(fcn_call) {
   data[order(match(data[[fcn_call$output_key]], keys), na.last = NA), , drop = FALSE]
 }
 
-debug_info <- function(fcn_call, cached_keys, uncached_keys) {
+debug_info <- function(fcn_call, keys) {
+  uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+  cached_keys <- setdiff(keys, uncached_keys)
+
+  shard_names <- get_shards_for_table(fcn_call$con, fcn_call$table)$shard_name
+  shard_info <- lapply(shard_names, function(name) {
+    if (DBI::dbExistsTable(fcn_call$con, name)) {
+      num_rows <- DBI::dbGetQuery(fcn_call$con, paste0("SELECT count(*) from ", name))[1, 1]
+      query <- paste0("select count(column_name) from information_schema.columns where table_name='", name, "'")
+      num_cols <- DBI::dbGetQuery(fcn_call$con, query)[1, 1]
+      paste0('  ', name, ': ', num_rows, ' rows * ', num_cols, ' columns')
+    } else {
+      paste0('  ', name, ': new shard')
+    }
+  })
+
   if (isTRUE(getOption('cachemeifyoucan.debug'))) {
-    message('Using table name: ', fcn_call$table)
-    shard_names <- get_shards_for_table(fcn_call$con, fcn_call$table)$shard_name
-    message('Shard dimensions:')
-    lapply(shard_names, function(name) {
-      if (DBI::dbExistsTable(fcn_call$con, name)) {
-        num_rows <- DBI::dbGetQuery(fcn_call$con, paste0("SELECT count(*) from ", name))[1, 1]
-        num_cols <- DBI::dbGetQuery(fcn_call$con,
-          paste0("select count(column_name) from information_schema.columns where table_name='", name, "'"))[1, 1]
-        message('  ', name, ': ', num_rows, ' rows * ', num_cols, ' columns')
-      } else {
-        message('  ', name, ': new shard')
-      }
-    })
-    message(length(cached_keys), ' cached keys')
-    message(length(uncached_keys), ' uncached keys')
+    msg <- paste(
+      c(
+        paste0("Using table name: ", fcn_call$table),
+        "Shard dimensions:",
+        shard_info,
+        paste0(length(cached_keys)  , " cached keys"),
+        paste0(length(uncached_keys), " uncached keys")
+      ),
+      collapse = "\n"
+    )
+    message(msg)
   }
+
+  list(
+    cached_keys = cached_keys,
+    uncached_keys = uncached_keys,
+    shard_names = shard_names,
+    table_name = fcn_call$table
+  )
 }
 
 try_write_data_safely <- function(...) {

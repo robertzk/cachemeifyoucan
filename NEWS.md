@@ -1,10 +1,9 @@
-# Version 0.2.1.4.9000
+# Version 0.2.1.7
+* Fixup batchman parallelism
 
-* Fixup 0.2.1.4
+# Version 0.2.1.4-6
 
-# Version 0.2.1.4
-
-* Integrated batchman's paralellism.
+* Use batchman parallelism and add `dry.` parameter to `cache`.
 
 # Version 0.2.1.3
 
