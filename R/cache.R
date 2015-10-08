@@ -224,12 +224,20 @@
 #'
 #' }
 cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_function),
-                  env = "cache", batch_size = 100) {
+                  env = "cache", batch_size = 100, parallel = FALSE, ncores = NULL) {
   stopifnot(is.function(uncached_function),
     is.character(prefix), length(prefix) == 1,
     is.character(key), length(key) > 0,
     is.atomic(salt) || is.list(salt),
     is.numeric(batch_size))
+  if (isTRUE(parallel) && !require('parallel')) {
+    parallel <- FALSE
+    warning('Install `parallel` package to use parallel batching')
+  }
+
+  if(isTRUE(parallel) && is.null(ncores)) {
+    ncores <- parallel::detectCores()
+  }
 
   cached_function <- new("function")
 

@@ -1,3 +1,6 @@
+# Version 0.2.1.8
+* Fixup batchman parallelism. Again.
+
 # Version 0.2.1.7
 * Fixup batchman parallelism
 
