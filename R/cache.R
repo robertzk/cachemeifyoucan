@@ -224,12 +224,20 @@
 #'
 #' }
 cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_function),
-                  env = "cache", batch_size = 100) {
+                  env = "cache", batch_size = 100, parallel = FALSE, ncores = NULL) {
   stopifnot(is.function(uncached_function),
     is.character(prefix), length(prefix) == 1,
     is.character(key), length(key) > 0,
     is.atomic(salt) || is.list(salt),
     is.numeric(batch_size))
+  if (isTRUE(parallel) && !require('parallel')) {
+    parallel <- FALSE
+    warning('Install `parallel` package to use parallel batching')
+  }
+
+  if(isTRUE(parallel) && is.null(ncores)) {
+    ncores <- parallel::detectCores()
+  }
 
   cached_function <- new("function")
 
@@ -256,7 +264,7 @@ cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_f
       , `_uncached_function` = uncached_function, `_con` = NULL
       , `_con_build` = c(list(con), if (!missing(env)) list(env))
       , `_env` = if (!missing(env)) env
-      , `_batch_size` = batch_size
+      , `_batch_size` = batch_size , `_parallel` = isTRUE(parallel), `_ncores` = ncores
       ),
       parent = environment(uncached_function))
 
@@ -331,7 +339,7 @@ build_cached_function <- function(cached_function) {
     } else force. <- FALSE
 
     fcn_call <- cachemeifyoucan:::cached_function_call(`_uncached_function`, call,
-        parent.frame(), tbl_name, `_key`, `_con`, force., `_batch_size`)
+      parent.frame(), tbl_name, `_key`, `_con`, force., `_batch_size`, `_parallel`, `_ncores`)
 
     ## Grab the all keys
     keys <- fcn_call$call[[fcn_call$key]]
@@ -384,7 +392,9 @@ execute <- function(fcn_call, keys) {
       combination_strategy = plyr::rbind.fill,
       batchman.verbose = verbose(),
       retry = 3,
-      stop = TRUE
+      stop = TRUE,
+      ncores = fcn_call$ncores,
+      parallel = fcn_call$parallel
     )
     uncached_data <- batched_fn(uncached_keys, fcn_call$force)
   } else {
@@ -477,7 +487,7 @@ compute_cached_data <- function(fcn_call, cached_keys) {
   error_fn(data_injector(fcn_call, cached_keys, TRUE))
 }
 
-cached_function_call <- function(fn, call, context, table, key, con, force, batch_size) {
+cached_function_call <- function(fn, call, context, table, key, con, force, batch_size, parallel, ncores) {
   # TODO: (RK) Handle keys of length more than 1
   if (is.null(names(key))) {
     output_key <- key
@@ -486,7 +496,8 @@ cached_function_call <- function(fn, call, context, table, key, con, force, batc
     key <- names(key)
   }
   structure(list(fn = fn, call = call, context = context, table = table, key = key,
-                 output_key = output_key, con = con, force = force, batch_size = batch_size),
+                 output_key = output_key, con = con, force = force, batch_size = batch_size,
+                 parallel = parallel, ncores = ncores),
     class = 'cached_function_call')
 }
 
