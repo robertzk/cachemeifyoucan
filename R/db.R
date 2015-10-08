@@ -22,7 +22,7 @@ column_names_map <- function(dbconn) {
 #' @return one or many names of the shard tables.
 get_shards_for_table <- function(dbconn, tbl_name) {
   if (!DBI::dbExistsTable(dbconn, 'table_shard_map')) create_shards_table(dbconn, 'table_shard_map')
-  DBI::dbGetQuery(dbconn, paste0("SELECT shard_name FROM table_shard_map where table_name='", tbl_name, "'"))
+  DBI::dbGetQuery(dbconn, paste0("SELECT shard_name FROM table_shard_map where table_name='", tbl_name, "'"))$shard_name
 }
 
 #' Create the table <=> shards map.
@@ -193,9 +193,8 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     if (!DBI::dbExistsTable(dbconn, 'table_shard_map')) {
       dbWriteTableUntilSuccess(dbconn, 'table_shard_map', table_shard_map, append = FALSE)
     } else {
-      shards <- DBI::dbGetQuery(dbconn, paste0("SELECT shard_name FROM table_shard_map WHERE table_name='", tblname,"'"))
-      if (NROW(shards) > 0) {
-        shards <- shards[[1]]
+      shards <- get_shards_for_table(dbconn, tblname)
+      if (length(shards) > 0) {
         table_shard_map <- table_shard_map[table_shard_map$shard_name %nin% shards, ]
       }
       if (NROW(table_shard_map) > 0) {
@@ -211,10 +210,7 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     ## Fetch existing shards
     shards <- c()
     if (DBI::dbExistsTable(dbconn, 'table_shard_map')) {
-      shards <- DBI::dbGetQuery(dbconn, paste0("SELECT shard_name FROM table_shard_map WHERE table_name='", tblname,"'"))
-      if (NROW(shards) > 0) {
-        shards <- shards[[1]]
-      }
+      shards <- get_shards_for_table(dbconn, tblname)
     }
     ## come up with new shards if needed
     numcols <- NCOL(df)
@@ -222,9 +218,9 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     numshards <- ceiling(numcols / MAX_COLUMNS_PER_SHARD)
     ## All data-containing tables will start with prefix *shard#{n}_*
     newshards <- paste0("shard", seq(numshards), "_", digest::digest(tblname))
-    if (NROW(shards) > 0) {
+    if (length(shards) > 0) {
       ## only generate new shard names for shards that don't exist!
-      unique(c(shards, newshards[-seq(NROW(shards))]))
+      unique(c(shards, newshards[-seq(length(shards))]))
     } else newshards
   }
 
@@ -402,11 +398,8 @@ get_new_key <- function(dbconn, tbl_name, ids, key) {
   if (length(ids) == 0) return(integer(0))
   shards <- get_shards_for_table(dbconn, tbl_name)
   ## If there are no existing shards - then nothing is cached yet
-  if (NROW(shards) == 0) {
-    return(ids)
-  } else {
-    shards <- shards[[1]]
-  }
+  if (length(shards) == 0) return(ids)
+
   if (!DBI::dbExistsTable(dbconn, shards[1])) return(integer(0))
   id_column_name <- get_hashed_names(key)
   ## We can check only the first shard because all shards have the same keys
@@ -428,9 +421,9 @@ remove_old_key <- function(dbconn, tbl_name, ids, key) {
   if (length(ids) == 0) return(invisible(NULL))
   id_column_name <- get_hashed_names(key)
   shards <- get_shards_for_table(dbconn, tbl_name)
-  if (NROW(shards) == 0) return(invisible(NULL))
+  if (length(shards) == 0) return(invisible(NULL))
   ## In this case though, we need to delete from all shards to keep them consistent
-  sapply(shards$shard_name, function(shard) {
+  sapply(shards, function(shard) {
     DBI::dbGetQuery(dbconn, paste0(
       "DELETE FROM ", shard, " WHERE ", id_column_name, " IN (",
       paste(ids, collapse = ","), ")"))
