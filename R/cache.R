@@ -224,7 +224,7 @@
 #'
 #' }
 cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_function),
-                  env = "cache", batch_size = 100, parallel = FALSE, ncores = parallel::detectCores()) {
+                  env = "cache", batch_size = 100) {
   stopifnot(is.function(uncached_function),
     is.character(prefix), length(prefix) == 1,
     is.character(key), length(key) > 0,
@@ -337,7 +337,7 @@ build_cached_function <- function(cached_function) {
     keys <- fcn_call$call[[fcn_call$key]]
 
     ## Log cache metadata if in debug mode
-    status <- debug_info(fcn_call, keys)
+    status <- cachemeifyoucan:::debug_info(fcn_call, keys)
 
     if (!is_dry) cachemeifyoucan:::execute(fcn_call, keys) else status
   })
@@ -384,9 +384,7 @@ execute <- function(fcn_call, keys) {
       combination_strategy = plyr::rbind.fill,
       batchman.verbose = verbose(),
       retry = 3,
-      stop = TRUE,
-      ncores = ncores,
-      parallel = parallel
+      stop = TRUE
     )
     uncached_data <- batched_fn(uncached_keys, fcn_call$force)
   } else {
