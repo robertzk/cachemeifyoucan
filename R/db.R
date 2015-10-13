@@ -208,10 +208,8 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     ## Two cases: the shards already exist - or they don't
     ##
     ## Fetch existing shards
-    shards <- c()
-    if (DBI::dbExistsTable(dbconn, 'table_shard_map')) {
-      shards <- get_shards_for_table(dbconn, tblname)
-    }
+    shards <- get_shards_for_table(dbconn, tblname)
+
     ## come up with new shards if needed
     numcols <- NCOL(df)
     if (numcols == 0) return(NULL)
