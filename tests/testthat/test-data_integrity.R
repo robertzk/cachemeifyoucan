@@ -17,10 +17,23 @@ describe("data integrity", {
 
   test_that('it crashes when trying to expand a table on new column when safe_columns is TRUE', {
     with_connection(dbconn(), {
-    lapply(dbListTables(conn), function(t) dbRemoveTable(conn, t))
-    cached_fcn <- cache(batch_data, key = c(key = "id"), c("model_version", "type"), con = conn, prefix = prefix, safe_columns = TRUE)
+      lapply(dbListTables(conn), function(t) dbRemoveTable(conn, t))
+      cached_fcn <- cache(batch_data, key = c(key = "id"), c("model_version", "type"), con = conn, prefix = prefix, safe_columns = TRUE)
       cached_fcn(key = 5:1,  model_version, type)
       expect_error(cached_fcn(key = 1:10, model_version, type, add_column = TRUE))
+    })
+  })
+
+  test_that('it calls a custom function when safe_columns is is a function', {
+    with_connection(dbconn(), {
+      called <- FALSE
+      caller <- function() { called <<- TRUE; TRUE }
+      lapply(dbListTables(conn), function(t) dbRemoveTable(conn, t))
+      cached_fcn <- cache(batch_data, key = c(key = "id"), c("model_version", "type"), con = conn, prefix = prefix, safe_columns = caller)
+      cached_fcn(key = 5:1,  model_version, type)
+      expect_false(called)
+      cached_fcn(key = 1:10, model_version, type, add_column = TRUE)
+      expect_true(called)
     })
   })
 })

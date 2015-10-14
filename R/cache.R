@@ -233,8 +233,8 @@ cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_f
   stopifnot(is.function(uncached_function),
     is.character(prefix), length(prefix) == 1,
     is.character(key), length(key) > 0,
-    is.atomic(salt) || is.list(salt),
-    is.numeric(batch_size))
+    is.atomic(salt) || is.list(salt), is.numeric(batch_size),
+    (is.logical(safe_columns) || is.function(safe_columns)))
 
   cached_function <- new("function")
 
