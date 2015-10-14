@@ -5,7 +5,7 @@
 \title{Apply a database caching layer to an arbitrary R function.}
 \usage{
 cache(uncached_function, key, salt, con, prefix = deparse(uncached_function),
-  env = "cache", batch_size = 100)
+  env = "cache", batch_size = 100, safe_columns = FALSE)
 }
 \arguments{
 \item{uncached_function}{function. The function to cache.}
@@ -60,8 +60,10 @@ is a yaml cofiguration file. By default, \code{"cache"}.}
 \item{safe_columns}{logical or function.  If safe_columns = \code{TRUE}
 and a caching call would add additional columns for an already existing
 cache with already existing columns, the function will instead crash.
-If safe_columns is a function, that function will be called. If safe_columns
-is /code{FALSE}, the additional columns will be added.  Defaults \code{FALSE}.}
+If safe_columns is a function, that function will be called.  The function
+must return /code{TRUE} for this to work.
+If safe_columns is /code{FALSE}, the additional columns will be added.
+Defaults \code{FALSE}.}
 }
 \value{
 A function with a caching layer that does not call
