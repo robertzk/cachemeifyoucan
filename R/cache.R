@@ -416,7 +416,7 @@ debug_info <- function(fcn_call, keys) {
   uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
   cached_keys <- setdiff(keys, uncached_keys)
 
-  shard_names <- get_shards_for_table(fcn_call$con, fcn_call$table)$shard_name
+  shard_names <- get_shards_for_table(fcn_call$con, fcn_call$table)
   shard_info <- lapply(shard_names, function(name) {
     if (DBI::dbExistsTable(fcn_call$con, name)) {
       num_rows <- DBI::dbGetQuery(fcn_call$con, paste0("SELECT count(*) from ", name))[1, 1]
@@ -462,7 +462,7 @@ get_column_names_from_table <- function(fcn_call) {
   ## Fetch one row from each corresponding shard
   ## omitting the id column
   ## and return a vector of column names
-  shards <- get_shards_for_table(fcn_call$con, fcn_call$table)[[1]]
+  shards <- get_shards_for_table(fcn_call$con, fcn_call$table)
   lst <- lapply(shards, function(shard) {
     df <- if (DBI::dbExistsTable(fcn_call$con, shard))
       DBI::dbGetQuery(fcn_call$con, paste0("SELECT * from ", shard, " LIMIT 1"))
@@ -511,7 +511,7 @@ data_injector_cached <- function(fcn_call, keys) {
   ## Now we have to merge all the data.frames in the list into one and return.
   ## Notice that these data frames have different column names (that's the whole point of
   ## our columnar sharding), except for the key by which we query.
-  shards <- get_shards_for_table(fcn_call$con, fcn_call$table)[[1]]
+  shards <- get_shards_for_table(fcn_call$con, fcn_call$table)
   lst <- lapply(shards, function(shard) read_df_from_a_shard(fcn_call, keys, shard))
   if (length(unique(vapply(lst, NROW, integer(1)))) > 1) {
     warning("cachemeifyoucan detected an integrity error: All shards should ",
