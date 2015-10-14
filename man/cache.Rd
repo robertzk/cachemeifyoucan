@@ -56,6 +56,12 @@ is a yaml cofiguration file. By default, \code{"cache"}.}
 
   Note that the \href{http://github.com/peterhurford/batchman}{batchman}
   package should be installed for batching to take effect.}
+
+\item{safe_columns}{logical or function.  If safe_columns = \code{TRUE}
+and a caching call would add additional columns for an already existing
+cache with already existing columns, the function will instead crash.
+If safe_columns is a function, that function will be called. If safe_columns
+is /code{FALSE}, the additional columns will be added.  Defaults \code{FALSE}.}
 }
 \value{
 A function with a caching layer that does not call

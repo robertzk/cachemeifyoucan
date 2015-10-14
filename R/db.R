@@ -133,7 +133,8 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df, append = FALSE, row.na
 #' @param tblname character. The table name to write the data into.
 #' @param df data.frame. The data to write.
 #' @param key character. The identifier column name.
-write_data_safely <- function(dbconn, tblname, df, key) {
+#' @inheritParams cache
+write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
   if (is.null(df)) return(FALSE)
   if (!is.data.frame(df)) return(FALSE)
   if (nrow(df) == 0) return(FALSE)
@@ -168,7 +169,16 @@ write_data_safely <- function(dbconn, tblname, df, key) {
       raw_names <- DBI::dbGetQuery(dbconn, 'SELECT raw_name FROM column_names')[[1]]
       column_map <- column_map[!is.element(column_map$raw_name, raw_names), ]
       if (NROW(column_map) > 0) {
-        dbWriteTable(dbconn, 'column_names', column_map, append = TRUE, row.names = FALSE)
+        if (isTRUE(safe_columns)) {
+          stop("Safe Columns Error: Your function call is adding additional ",
+            "columns to a cache that already has pre-existing columns. This ",
+            "would suggest your cache is invalid and you should wipe the cache ",
+            "and start over.")
+        } else if (is.function(safe_columns)) {
+          safe_columns()
+        } else { # Write additional columns
+          dbWriteTable(dbconn, 'column_names', column_map, append = TRUE, row.names = FALSE)
+        }
       }
     }
     TRUE
@@ -367,20 +377,24 @@ write_data_safely <- function(dbconn, tblname, df, key) {
       }
 
       write_column_hashed_data(df, tblname, append = TRUE)
+      DBI::dbGetQuery(dbconn, 'COMMIT')
     })
     },
     warning = function(w) {
       message("An warning occured:", w)
       message("Rollback!")
       DBI::dbRollback(dbconn)
+      DBI::dbGetQuery(dbconn, 'COMMIT')
     },
     error = function(e) {
-      message("An error occured:", e)
-      message("Rollback!")
-      DBI::dbRollback(dbconn)
-    },
-    finally = {
-      DBI::dbGetQuery(dbconn, 'COMMIT')
+      if (grepl("Safe Columns Error", conditionMessage(e))) {
+        stop(e)
+      } else {
+        message("An error occured:", e)
+        message("Rollback!")
+        DBI::dbRollback(dbconn)
+        DBI::dbGetQuery(dbconn, 'COMMIT')
+      }
     }
   )
   invisible(TRUE)

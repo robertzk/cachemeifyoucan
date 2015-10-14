@@ -4,7 +4,7 @@
 \alias{write_data_safely}
 \title{Write data.frames to DB addressing pitfalls}
 \usage{
-write_data_safely(dbconn, tblname, df, key)
+write_data_safely(dbconn, tblname, df, key, safe_columns)
 }
 \arguments{
 \item{dbconn}{PostgreSQLConnection. The database connection.}
@@ -14,6 +14,12 @@ write_data_safely(dbconn, tblname, df, key)
 \item{df}{data.frame. The data to write.}
 
 \item{key}{character. The identifier column name.}
+
+\item{safe_columns}{logical or function.  If safe_columns = \code{TRUE}
+and a caching call would add additional columns for an already existing
+cache with already existing columns, the function will instead crash.
+If safe_columns is a function, that function will be called. If safe_columns
+is /code{FALSE}, the additional columns will be added.  Defaults \code{FALSE}.}
 }
 \description{
 Write data.frames to DB addressing pitfalls
