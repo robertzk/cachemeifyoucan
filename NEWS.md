@@ -1,3 +1,7 @@
+# Version 0.2.2
+
+* Moved the db testing infrastructure to another package, syberia/dbtest.
+
 # Version 0.2.1.4-6
 
 * Use batchman parallelism and add `dry.` parameter to `cache`.
