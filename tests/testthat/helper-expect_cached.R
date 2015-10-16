@@ -7,7 +7,7 @@ with_connection <- function(conn, expr) {
 expect_almost_equal <- function(..., tolerance = 1e-5) expect_equal(..., tolerance = tolerance)
 
 expect_cached <- function(expr) {
-  with_connection(dbconn(), {
+  with_connection(dbtest::db_test_con(), {
     lapply(dbListTables(conn), function(t) dbRemoveTable(conn, t))
     cached_fcn <- cache(batch_data, key = c(key = "id"), c("model_version", "type"), con = conn, prefix = prefix)
     eval(substitute(expr), envir = environment())

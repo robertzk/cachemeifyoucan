@@ -316,9 +316,9 @@ build_cached_function <- function(cached_function) {
     tbl_name <- cachemeifyoucan:::table_name(`_prefix`, true_salt)
 
     ## Check database connection and reconnect if necessary
-    if (is.null(`_con`) || !cachemeifyoucan:::is_db_connected(`_con`)) {
+    if (is.null(`_con`) || !dbtest::is_db_connected(`_con`)) {
       if (!is.null(`_con_build`[[1]])) {
-        `_con` <<- do.call(cachemeifyoucan:::build_connection, `_con_build`)
+        `_con` <<- do.call(dbtest::build_connection, `_con_build`)
       } else {
         stop("Cannot re-establish database connection (caching layer)!")
       }
