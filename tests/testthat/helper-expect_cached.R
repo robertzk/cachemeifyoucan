@@ -1,16 +1,9 @@
 expect_almost_equal <- function(..., tolerance = 1e-5) expect_equal(..., tolerance = tolerance)
 
-<<<<<<< HEAD
 expect_cached <- function(expr, no_check = FALSE) {
-  with_connection(dbconn(), {
-    lapply(dbListTables(conn), function(t) dbRemoveTable(conn, t))
-    cached_fcn <- cache(batch_data, key = c(key = "id"), c("model_version", "type"), con = conn, prefix = prefix)
-=======
-expect_cached <- function(expr) {
   dbtest::with_test_db({
     lapply(dbListTables(test_con), function(t) dbRemoveTable(test_con, t))
     cached_fcn <- cache(batch_data, key = c(key = "id"), c("model_version", "type"), con = test_con, prefix = prefix)
->>>>>>> origin/master
     eval(substitute(expr), envir = environment())
 
     shards <- cachemeifyoucan:::get_shards_for_table(test_con, cachemeifyoucan:::table_name(prefix, list(model_version = model_version, type = type)))[[1]]
@@ -22,7 +15,7 @@ expect_cached <- function(expr) {
     })
     df_db <- cachemeifyoucan:::merge2(lst, "id")
 
-    if (!exists('no_check', envir = environment(), inherits = FALSE) ) {
+    if (isTRUE(no_check)) {
       expect_almost_equal(df_db, df_ref)
     }
     if (exists('df_cached', envir = environment(), inherits = FALSE)) {
