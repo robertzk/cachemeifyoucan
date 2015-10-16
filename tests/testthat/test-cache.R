@@ -16,9 +16,9 @@ describe("cache function", {
    })
   
    test_that('We can cache big tables', {
-     with_connection(dbconn(), {
-       lapply(dbListTables(conn), function(t) dbRemoveTable(conn, t))
-       cached_fcn <- cache(batch_huge_data, key = c(key = "id"), c("version"), con = conn, prefix = "huge_data")
+     dbtest::with_test_db({
+       lapply(dbListTables(test_con), function(t) dbRemoveTable(test_con, t))
+       cached_fcn <- cache(batch_huge_data, key = c(key = "id"), c("version"), con = test_con, prefix = "huge_data")
        lapply(list(1:10, 1:20), function(ids) {
          # Populate the cache and make sure that the results are equal
          expect_equal(dim(bd <- batch_huge_data(ids)), dim(cached_fcn(ids)))

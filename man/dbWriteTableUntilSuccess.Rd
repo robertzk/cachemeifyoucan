@@ -4,7 +4,8 @@
 \alias{dbWriteTableUntilSuccess}
 \title{Try and check dbWriteTable until success}
 \usage{
-dbWriteTableUntilSuccess(dbconn, tblname, df)
+dbWriteTableUntilSuccess(dbconn, tblname, df, append = FALSE,
+  row.names = NA)
 }
 \arguments{
 \item{dbconn}{SQLConnection. A database connection.}

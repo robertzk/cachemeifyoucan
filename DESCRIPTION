@@ -16,7 +16,8 @@ Imports:
     RPostgres (>= 0.1.1),
     digest,
     DBI,
-    plyr
+    plyr,
+    dbtest
 Suggests:
     knitr,
     testthatsomemore,
