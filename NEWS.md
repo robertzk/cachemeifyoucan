@@ -1,4 +1,4 @@
-# Version 0.2.3
+# Version 0.2.2
 
 * Moved the db testing infrastructure to another package, syberia/dbtest.
 
