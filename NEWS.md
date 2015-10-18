@@ -1,3 +1,7 @@
+# Version 0.2.2.1
+
+* Switched to using dbtest::db_test_that from the latest version of dbtest.
+
 # Version 0.2.2
 
 * Moved the db testing infrastructure to another package, syberia/dbtest.
