@@ -1,8 +1,9 @@
 context('data integrity')
+library(dbtest)
 
 describe("data integrity", {
 
-  test_that('it can expand a table if a new column pops up in later entries', {
+  db_test_that('it can expand a table if a new column pops up in later entries', {
     expect_cached({
       df_ref <- cbind(batch_data(1:5, model_version, type), data.frame(new_col = rep(NA_real_, 5)))
       df_ref <- rbind(df_ref, batch_data(6:10, model_version, type, add_column = TRUE))

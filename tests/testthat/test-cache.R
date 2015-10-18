@@ -1,5 +1,6 @@
 context('cache function')
 library(DBI)
+library(dbtest)
 library(testthatsomemore)
 
 # Set up test fixture
@@ -7,7 +8,7 @@ library(testthatsomemore)
 # https://github.com/hadley/dplyr/blob/master/vignettes/notes/postgres-setup.Rmd
 describe("cache function", {
 
-   test_that('calling the cached function for the first time populated a new table', {
+   db_test_that('calling the cached function for the first time populated a new table', {
      # First remove all tables in the local database.
      expect_cached({
        df_ref <- batch_data(1:5)
@@ -15,24 +16,21 @@ describe("cache function", {
      })
    })
   
-   test_that('We can cache big tables', {
-     dbtest::with_test_db({
-       lapply(dbListTables(test_con), function(t) dbRemoveTable(test_con, t))
-       cached_fcn <- cache(batch_huge_data, key = c(key = "id"), c("version"), con = test_con, prefix = "huge_data")
-       lapply(list(1:10, 1:20), function(ids) {
-         # Populate the cache and make sure that the results are equal
-         expect_equal(dim(bd <- batch_huge_data(ids)), dim(cached_fcn(ids)))
-         # Make sure we're reading from cache and it's fast now!
-         takes_less_than(1)(tmp <- cached_fcn(ids))
-         # And the results are still correct
-         expect_equal(dim(bd), dim(tmp))
-       })
-       # And now everything is so cached
-       takes_less_than(1)(tmp <- cached_fcn(1:20))
+   db_test_that('We can cache big tables', {
+     cached_fcn <- cache(batch_huge_data, key = c(key = "id"), c("version"), con = test_con, prefix = "huge_data")
+     lapply(list(1:10, 1:20), function(ids) {
+       # Populate the cache and make sure that the results are equal
+       expect_equal(dim(bd <- batch_huge_data(ids)), dim(cached_fcn(ids)))
+       # Make sure we're reading from cache and it's fast now!
+       takes_less_than(1)(tmp <- cached_fcn(ids))
+       # And the results are still correct
+       expect_equal(dim(bd), dim(tmp))
      })
+     # And now everything is so cached
+     takes_less_than(1)(tmp <- cached_fcn(1:20))
    })
   
-   test_that('retrieving partial result from cache works', {
+   db_test_that('retrieving partial result from cache works', {
      expect_cached({
        df_ref <- batch_data(1:5)
        cached_fcn(key = 1:5, model_version, type)
@@ -40,7 +38,7 @@ describe("cache function", {
      })
    })
   
-   test_that('attempting to populate a new row with a different value fails due to cache hit', {
+   db_test_that('attempting to populate a new row with a different value fails due to cache hit', {
      expect_cached({
        df_ref <- batch_data(1:5, switch = TRUE, flip = 4:5)
        cached_fcn(key = 1:5, model_version, type, switch = TRUE, flip = 4:5)
@@ -49,7 +47,7 @@ describe("cache function", {
      })
    })
   
-   test_that('appending partially overlapped table adds to cache', {
+   db_test_that('appending partially overlapped table adds to cache', {
      expect_cached({
        df_ref <- batch_data(1:5, model_version, type, switch = TRUE, flip = 1)
        df_ref <- rbind(df_ref, batch_data(6, model_version, type))
@@ -58,7 +56,7 @@ describe("cache function", {
      })
    })
   
-   test_that('re-arranging in the correct order happens when using the cache', {
+   db_test_that('re-arranging in the correct order happens when using the cache', {
      expect_cached({
        df_ref <- batch_data(1:5, model_version, type)
        cached_fcn(key = 1:5, model_version, type)
@@ -68,7 +66,7 @@ describe("cache function", {
      })
    })
   
-   test_that('re-arranging in the correct order happens when using the cache with partially new results', {
+   db_test_that('re-arranging in the correct order happens when using the cache with partially new results', {
      expect_cached({
        df_ref <- batch_data(1:5, model_version, type)
        cached_fcn(key = 1:3, model_version, type)
@@ -78,7 +76,7 @@ describe("cache function", {
      })
    })
 
-  test_that('non-numeric primary keys are supported', {
+  db_test_that('non-numeric primary keys are supported', {
     expect_cached({
       df_ref <- batch_data(letters[1:5])
       cached_fcn(key = letters[1:5], model_version, type)
@@ -86,7 +84,7 @@ describe("cache function", {
     })
   })
 
-  test_that('the force. parameter triggers cache re-population', {
+  db_test_that('the force. parameter triggers cache re-population', {
     # First remove all tables in the local database.
     expect_cached({
       df_ref <- batch_data(1:5)

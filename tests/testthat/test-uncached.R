@@ -1,5 +1,6 @@
 context('uncached function')
 library(DBI)
+library(dbtest)
 library(testthatsomemore)
 
 # Set up test fixture
@@ -7,7 +8,7 @@ library(testthatsomemore)
 # https://github.com/hadley/dplyr/blob/master/vignettes/notes/postgres-setup.Rmd
 describe("uncached function", {
 
-  test_that('calling the cached function for the first time populated a new table', {
+  db_test_that('calling the cached function for the first time populated a new table', {
     # First remove all tables in the local database.
     expect_cached({
       df_ref <- batch_data(1:5)
@@ -15,12 +16,12 @@ describe("uncached function", {
     })
   })
 
-  test_that('uncached function returns identical function for a non-cached func', {
+  db_test_that('uncached function returns identical function for a non-cached func', {
     f <- function(...) TRUE
     expect_equal(uncached(f), f)
   })
 
-  test_that('uncached undoes caching', {
+  db_test_that('uncached undoes caching', {
     expect_cached({
       df_ref <- batch_data(1:5)
       df_cached <- cached_fcn(key = 1:5, model_version, type)
