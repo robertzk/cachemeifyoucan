@@ -1,3 +1,6 @@
+# Version 0.2.4
+* Implements a blacklist of values that are to be returned but not cached.
+
 # Version 0.2.3.1
 * Switched to using dbtest::db_test_that from the latest version of dbtest.
 
