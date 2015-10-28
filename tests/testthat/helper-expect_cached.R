@@ -1,6 +1,6 @@
 expect_almost_equal <- function(..., tolerance = 1e-5) expect_equal(..., tolerance = tolerance)
 
-expect_cached <- function(expr) {
+expect_cached <- function(expr, no_check = FALSE) {
   dbtest::with_test_db({
     lapply(dbListTables(test_con), function(t) dbRemoveTable(test_con, t))
     cached_fcn <- cache(batch_data, key = c(key = "id"), c("model_version", "type"), con = test_con, prefix = prefix)
@@ -15,7 +15,7 @@ expect_cached <- function(expr) {
     })
     df_db <- cachemeifyoucan:::merge2(lst, "id")
 
-    if (!exists('no_check', envir = environment(), inherits = FALSE) ) {
+    if (identical(no_check, FALSE)) {
       expect_almost_equal(df_db, df_ref)
     }
     if (exists('df_cached', envir = environment(), inherits = FALSE)) {
