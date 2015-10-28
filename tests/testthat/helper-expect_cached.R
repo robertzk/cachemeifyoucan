@@ -4,6 +4,10 @@ return_nas <- function(key, model_version = "model_test", type = "record_id") {
   data.frame(id = key, data = rep(NA_character_, length(key)))
 }
 
+return_falses <- function(key, model_version = "model_test", type = "record_id") {
+  data.frame(id = key, data = rep("FALSE", length(key)))
+}
+
 #' Converts a vector to a particular length by cycling it.
 #' @param v vector. The vector to cycle.
 #' @param len integer. The length to make it.

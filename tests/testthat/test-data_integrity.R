@@ -57,6 +57,15 @@ describe("conditional caching", {
         without_rownames(cached_fcn(key = 1:5, model_version, type)))
     }, fn = return_nas)
   })
+  db_test_that("it won't cache FALSE if FALSE is on the blacklist", {
+    expect_cached({
+      lapply(dbListTables(test_con), function(t) dbRemoveTable(test_con, t))
+      cached_fcn <- cache(return_falses, key = c(key = "id"), salt = c("model_version", "type"), con = test_con, prefix = prefix, blacklist = list("FALSE"))
+      df_ref <- data.frame(id = 1, data = "a")[FALSE, ]   # Will cache to a strange 0x2 df...
+      expect_almost_equal(without_rownames(return_falses(1:5)),  # ...But will return the normal data
+        without_rownames(cached_fcn(key = 1:5, model_version, type)))
+    }, fn = return_falses)
+  })
   db_test_that("it won't cache 'pizza' or 'potato' if they're on the blacklist", {
     expect_cached({
       lapply(dbListTables(test_con), function(t) dbRemoveTable(test_con, t))
