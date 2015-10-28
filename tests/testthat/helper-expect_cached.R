@@ -1,11 +1,11 @@
 expect_almost_equal <- function(..., tolerance = 1e-5) expect_equal(..., tolerance = tolerance)
 
 return_nas <- function(key, model_version = "model_test", type = "record_id") {
-  data.frame(id = key, data = rep(NA_character_, length(key)))
+  data.frame(id = key, data = rep(NA_character_, length(key)), stringsAsFactors = FALSE)
 }
 
 return_falses <- function(key, model_version = "model_test", type = "record_id") {
-  data.frame(id = key, data = rep("FALSE", length(key)))
+  data.frame(id = key, data = rep("FALSE", length(key)), stringsAsFactors = FALSE)
 }
 
 #' Converts a vector to a particular length by cycling it.
@@ -20,7 +20,7 @@ cycle_vector_to_length <- function(v, len) {
 }
 
 return_foods <- function(key, model_version = "model_test", type = "record_id") {
-  data.frame(id = key, data = cycle_vector_to_length(c("pizza", "potato", "apple", "banana"), length(key)))
+  data.frame(id = key, data = cycle_vector_to_length(c("pizza", "potato", "apple", "banana"), length(key)), stringsAsFactors = FALSE)
 }
 
 expect_cached <- function(expr, no_check = FALSE, fn = batch_data) {
