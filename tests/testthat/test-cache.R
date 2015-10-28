@@ -62,8 +62,7 @@ describe("cache function", {
        cached_fcn(key = 1:5, model_version, type)
        expect_almost_equal(without_rownames(df_ref[5:1, ]),
                     without_rownames(cached_fcn(key = 5:1, model_version, type)))
-       no_check <- TRUE
-     })
+     }, no_check = TRUE)
    })
   
    db_test_that('re-arranging in the correct order happens when using the cache with partially new results', {
@@ -72,8 +71,7 @@ describe("cache function", {
        cached_fcn(key = 1:3, model_version, type)
        expect_almost_equal(without_rownames(df_ref[5:1, ]),
                     without_rownames(cached_fcn(key = 5:1, model_version, type)))
-       no_check <- TRUE
-     })
+     }, no_check = TRUE)
    })
 
   db_test_that('non-numeric primary keys are supported', {
@@ -88,7 +86,7 @@ describe("cache function", {
     # First remove all tables in the local database.
     expect_cached({
       df_ref <- batch_data(1:5)
-      package_stub("cachemeifyoucan", "try_write_data_safely", function(...) {
+      package_stub("cachemeifyoucan", "write_data_safely", function(...) {
         stop("Caching layer should not be used")
       }, {
         expect_error(df_cached <- cached_fcn(key = 1:5, model_version, type, force. = FALSE),
@@ -97,5 +95,4 @@ describe("cache function", {
       df_cached <- cached_fcn(key = 1:5, model_version, type, force. = TRUE)
     })
   })
-
 })

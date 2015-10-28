@@ -1,13 +1,14 @@
-# Version 0.2.2.1
-
+# Version 0.2.3.1
 * Switched to using dbtest::db_test_that from the latest version of dbtest.
 
-# Version 0.2.2
+# Version 0.2.3
+* Adds `safe_columns`, which, when TRUE will crash when (a) column tables already exist for a given cache and (b) new columns are found and added.
+* Restructures the codebase to allow this hard crash to not be discarded by the myriad of `try` blocks.
 
+# Version 0.2.2
 * Moved the db testing infrastructure to another package, syberia/dbtest.
 
 # Version 0.2.1.4-6
-
 * Use batchman parallelism and add `dry.` parameter to `cache`.
 
 # Version 0.2.1.3
