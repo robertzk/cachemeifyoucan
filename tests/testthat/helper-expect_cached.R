@@ -4,6 +4,21 @@ return_nas <- function(key, model_version = "model_test", type = "record_id") {
   data.frame(id = key, data = rep(NA_character_, length(key)))
 }
 
+#' Converts a vector to a particular length by cycling it.
+#' @param v vector. The vector to cycle.
+#' @param len integer. The length to make it.
+cycle_vector_to_length <- function(v, len) {
+  stopifnot(is.numeric(len) && len > 0)
+  len <- as.integer(len)
+  v <- rep(v, len)
+  length(v) <- len
+  v
+}
+
+return_foods <- function(key, model_version = "model_test", type = "record_id") {
+  data.frame(id = key, data = cycle_vector_to_length(c("pizza", "potato", "apple", "banana"), length(key)))
+}
+
 expect_cached <- function(expr, no_check = FALSE, fn = batch_data) {
   cached_fcn <- cache(fn, key = c(key = "id"), c("model_version", "type"), con = test_con, prefix = prefix)
   eval(substitute(expr), envir = environment())
