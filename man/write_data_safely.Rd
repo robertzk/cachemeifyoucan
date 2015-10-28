@@ -4,7 +4,7 @@
 \alias{write_data_safely}
 \title{Write data.frames to DB addressing pitfalls}
 \usage{
-write_data_safely(dbconn, tblname, df, key, safe_columns)
+write_data_safely(dbconn, tblname, df, key, safe_columns, blacklist)
 }
 \arguments{
 \item{dbconn}{PostgreSQLConnection. The database connection.}
@@ -23,6 +23,10 @@ must return /code{TRUE} for this to work.  Also the function will be called
 with no arguments.  This is mainly so you can write your own error message.
 If safe_columns is /code{FALSE}, the additional columns will be added.
 Defaults \code{FALSE}.}
+
+\item{blacklist}{list. Any elements in this list will be blocked from caching.
+This is useful for implementing a conditonal cache or adding more safety around
+your caching layer.  Defaults to \code{NULL} or no blacklist.}
 }
 \description{
 Write data.frames to DB addressing pitfalls

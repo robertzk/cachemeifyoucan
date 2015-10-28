@@ -56,6 +56,9 @@
 #'   with no arguments.  This is mainly so you can write your own error message.
 #'   If safe_columns is /code{FALSE}, the additional columns will be added. 
 #'   Defaults \code{FALSE}.
+#' @param blacklist list. Any elements in this list will be blocked from caching.
+#'   This is useful for implementing a conditonal cache or adding more safety around
+#'   your caching layer.  Defaults to \code{NULL} or no blacklist.
 #' @return A function with a caching layer that does not call
 #'   \code{uncached_function} with already computed records, but retrieves
 #'   those results from an underlying database table.
@@ -232,12 +235,13 @@
 #'
 #' }
 cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_function),
-                  env = "cache", batch_size = 100, safe_columns = FALSE) {
+                  env = "cache", batch_size = 100, safe_columns = FALSE, blacklist = NULL) {
   stopifnot(is.function(uncached_function),
     is.character(prefix), length(prefix) == 1,
     is.character(key), length(key) > 0,
     is.atomic(salt) || is.list(salt), is.numeric(batch_size),
-    (is.logical(safe_columns) || is.function(safe_columns)))
+    (is.logical(safe_columns) || is.function(safe_columns)),
+    (is.list(blacklist) || is.null(blacklist)))
 
   cached_function <- new("function")
 
@@ -268,7 +272,7 @@ cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_f
       ),
       parent = environment(uncached_function))
 
-  build_cached_function(cached_function, safe_columns)
+  build_cached_function(cached_function, safe_columns, blacklist)
 }
 
 #' Fetch the uncached function
@@ -286,7 +290,7 @@ uncached <- function(fn) {
   }
 }
 
-build_cached_function <- function(cached_function, safe_columns) {
+build_cached_function <- function(cached_function, safe_columns, blacklist) {
   ## All cached functions will have the same body.
   body(cached_function) <- quote({
     ## If a user calls the uncached_function with, e.g.,
@@ -347,16 +351,17 @@ build_cached_function <- function(cached_function, safe_columns) {
     ## Log cache metadata if in debug mode
     status <- cachemeifyoucan:::debug_info(fcn_call, keys)
 
-    if (!is_dry) cachemeifyoucan:::execute(fcn_call, keys, safe_columns) else status
+    if (!is_dry) cachemeifyoucan:::execute(fcn_call, keys, safe_columns, blacklist) else status
   })
 
   class(cached_function) <- append("cached_function", class(cached_function))
   environment(cached_function)$safe_columns <- safe_columns
+  environment(cached_function)$blacklist <- blacklist
   cached_function
 }
 
 ## A helper function to execute a cached function call.
-execute <- function(fcn_call, keys, safe_columns) {
+execute <- function(fcn_call, keys, safe_columns, blacklist) {
 
   ## If some keys were populated by another process, we will keep track of those
   ## so that we do not have to duplicate the caching effort.
@@ -376,7 +381,7 @@ execute <- function(fcn_call, keys, safe_columns) {
     if (!length(keys)) return(data.frame())
     uncached_data <- compute_uncached_data(fcn_call, keys)
     write_data_safely(fcn_call$con, fcn_call$table,
-      uncached_data, fcn_call$output_key, safe_columns)
+      uncached_data, fcn_call$output_key, safe_columns, blacklist)
     uncached_data
   }
 

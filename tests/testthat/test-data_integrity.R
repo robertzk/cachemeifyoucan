@@ -1,8 +1,7 @@
 context('data integrity')
 library(dbtest)
 
-describe("data integrity", {
-
+describe("safe columns", {
   db_test_that('it can expand a table if a new column pops up in later entries', {
     expect_cached({
       df_ref <- cbind(batch_data(1:5, model_version, type),
@@ -36,5 +35,26 @@ describe("data integrity", {
       cached_fcn(key = 1:10, model_version, type, add_column = TRUE)
       expect_true(called)
     })
+  })
+})
+
+
+describe("conditional caching", {
+  db_test_that("it will cache NA if NA is not on the blacklist", {
+    expect_cached({
+      cached_fcn <- cache(return_nas, key = c(key = "id"), salt = c("model_version", "type"), con = test_con, prefix = prefix, blacklist = list("pizza"))
+      df_ref <- return_nas(1:5)
+      expect_almost_equal(without_rownames(df_ref),
+        without_rownames(cached_fcn(key = 1:5, model_version, type)))
+    }, fn = return_nas)
+  })
+  db_test_that("it won't cache NA if NA is on the blacklist", {
+    expect_cached({
+      lapply(dbListTables(test_con), function(t) dbRemoveTable(test_con, t))
+      cached_fcn <- cache(return_nas, key = c(key = "id"), salt = c("model_version", "type"), con = test_con, prefix = prefix, blacklist = list(NA))
+      df_ref <- data.frame(id = 1, data = "a")[FALSE, ]   # Will cache to a strange 0x2 df...
+      expect_almost_equal(without_rownames(return_nas(1:5)),  # ...But will return the normal data
+        without_rownames(cached_fcn(key = 1:5, model_version, type)))
+    }, fn = return_nas)
   })
 })

@@ -134,7 +134,7 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df, append = FALSE, row.na
 #' @param df data.frame. The data to write.
 #' @param key character. The identifier column name.
 #' @inheritParams cache
-write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
+write_data_safely <- function(dbconn, tblname, df, key, safe_columns, blacklist) {
   if (is.null(df)) return(FALSE)
   if (!is.data.frame(df)) return(FALSE)
   if (nrow(df) == 0) return(FALSE)
@@ -297,6 +297,14 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
   }
 
   write_column_hashed_data <- function(df, tblname, append = TRUE) {
+    ## Don't cache anything that is in the blacklist.
+    if (!is.null(blacklist)) {
+      if (any(is.na(blacklist))) {
+        df <- df[apply(df, 1, function(x) all(!(is.na(x)))),]
+      }
+      df <- df[apply(df, 1, function(x) all(!(x %in% blacklist))),]
+    }
+
     ## Create the mapping between original column names and their MD5 companions
     write_column_names_map(colnames(df))
 
