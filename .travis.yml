@@ -21,7 +21,7 @@ install:
 - "./travis-tool.sh install_github robertzk/tundra robertzk/productivus"
 - "./travis-tool.sh install_github robertzk/syberiaMungebits"
 - "./travis-tool.sh install_github robertzk/syberiaStructure"
-- "./travis-tool.sh install_github syberia/dbtest"
+- "./travis-tool.sh install_github avantcredit/dbtest"
 - "./travis-tool.sh install_github robertzk/testthatsomemore robertzk/berdie"
 - "./travis-tool.sh install_github kirillseva/covr"
 script: "./travis-tool.sh run_tests"

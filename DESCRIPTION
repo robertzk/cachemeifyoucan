@@ -17,7 +17,7 @@ Imports:
     digest,
     DBI,
     plyr,
-    dbtest (>= 0.0.0.9005)
+    dbtest (>= 0.0.2.9001)
 Suggests:
     knitr,
     testthatsomemore,
