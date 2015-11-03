@@ -14,6 +14,7 @@ expect_cached <- function(expr, no_check = FALSE) {
   df_db <- cachemeifyoucan:::merge2(lst, "id")
 
   if (identical(no_check, FALSE)) {
+    df_db$last_cached_at <- NULL
     expect_almost_equal(df_db, df_ref)
   }
   if (exists('df_cached', envir = environment(), inherits = FALSE)) {
