@@ -1,3 +1,9 @@
+CLASS_MAP <- list(
+  integer = 'bigint', numeric = 'double precision', factor = 'text',
+  double = 'double precision', character = 'text', logical = 'text',
+  POSIXct = 'timestamp'
+)
+
 #' Database table name for a given prefix and salt.
 #'
 #' @param prefix character. Prefix.
@@ -95,11 +101,8 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df, append = FALSE, row.na
   }
 
   repeat {
-    class_map <- list(integer = 'bigint', numeric = 'double precision', factor = 'text',
-                      double = 'double precision', character = 'text', logical = 'text',
-                      POSIXct = 'timestamp')
     field_classes <- vapply(df, function(col) class(col)[1L], character(1))
-    field_types <- vapply(field_classes, function(klass) class_map[[klass]], character(1))
+    field_types <- vapply(field_classes, function(klass) CLASS_MAP[[klass]], character(1))
     DBI::dbWriteTable(dbconn, tblname, df, append = append,
                       row.names = row.names, field.types = field_types)
     #TODO(kirill): repeat maximum of N times
@@ -358,8 +361,6 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
       new_names <- c(new_names, id_cols)
       missing_cols <- !is.element(new_names, colnames(one_row))
       # TODO: (RK) Check reverse, that we're not missing any already-present columns
-      class_map <- list(integer = 'bigint', numeric = 'double precision', factor = 'text',
-                        double = 'double precision', character = 'text', logical = 'text')
       removes <- integer(0)
       for (index in which(missing_cols)) {
         col <- new_names[index]
@@ -369,7 +370,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
         # the tables.
         if (index > length(df)) index <- col
         sql <- paste0("ALTER TABLE ", tblname, " ADD COLUMN ",
-                         col, " ", class_map[[class(df[[index]])[1]]])
+                         col, " ", CLASS_MAP[[class(df[[index]])[1]]])
         suppressWarnings(DBI::dbGetQuery(dbconn, sql))
       }
 
