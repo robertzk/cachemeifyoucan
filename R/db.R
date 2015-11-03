@@ -98,7 +98,8 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df, append = FALSE, row.na
     class_map <- list(integer = 'bigint', numeric = 'double precision', factor = 'text',
                       double = 'double precision', character = 'text', logical = 'text',
                       POSIXct = 'timestamp')
-    field_types <- sapply(sapply(df, class), function(klass) class_map[[klass]])
+    field_classes <- sapply(df, function(col) head(class(col), 1))
+    field_types <- sapply(field_classes, function(klass) class_map[[klass]])
     DBI::dbWriteTable(dbconn, tblname, df, append = append,
                       row.names = row.names, field.types = field_types)
     #TODO(kirill): repeat maximum of N times

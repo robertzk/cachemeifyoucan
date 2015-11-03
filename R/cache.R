@@ -534,7 +534,6 @@ read_df_from_a_shard <- function(fcn_call, keys, shard) {
                paste(sanitize_sql(keys), collapse = ', '), ")")
   df <- db2df(dbGetQuery(fcn_call$con, sql),
         fcn_call$con, fcn_call$output_key)
-
   df$last_cached_at <- NULL
   df
 }
