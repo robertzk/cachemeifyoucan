@@ -98,8 +98,8 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df, append = FALSE, row.na
     class_map <- list(integer = 'bigint', numeric = 'double precision', factor = 'text',
                       double = 'double precision', character = 'text', logical = 'text',
                       POSIXct = 'timestamp')
-    field_classes <- sapply(df, function(col) head(class(col), 1))
-    field_types <- sapply(field_classes, function(klass) class_map[[klass]])
+    field_classes <- vapply(df, function(col) class(col)[1L], character(1))
+    field_types <- vapply(field_classes, function(klass) class_map[[klass]], character(1))
     DBI::dbWriteTable(dbconn, tblname, df, append = append,
                       row.names = row.names, field.types = field_types)
     #TODO(kirill): repeat maximum of N times
@@ -312,7 +312,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
     df[to_chars] <- lapply(df[to_chars], as.character)
 
     ## Add timestamp
-    df <- cbind(df, last_cached_at = Sys.time())
+    df$last_cached_at <- Sys.time()
 
     ## Write out to postgres
     dbWriteTableUntilSuccess(dbconn, tblname, df, row.names = FALSE, append = append)
