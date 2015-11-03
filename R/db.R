@@ -96,7 +96,8 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df, append = FALSE, row.na
 
   repeat {
     class_map <- list(integer = 'bigint', numeric = 'double precision', factor = 'text',
-                      double = 'double precision', character = 'text', logical = 'text')
+                      double = 'double precision', character = 'text', logical = 'text',
+                      POSIXct = 'timestamp')
     field_types <- sapply(sapply(df, class), function(klass) class_map[[klass]])
     DBI::dbWriteTable(dbconn, tblname, df, append = append,
                       row.names = row.names, field.types = field_types)
@@ -298,6 +299,9 @@ write_data_safely <- function(dbconn, tblname, df, key) {
     ## Convert some types to character so they go in the DB properly.
     to_chars <- unname(vapply(df, function(x) is.factor(x) || is.ordered(x) || is.logical(x), logical(1)))
     df[to_chars] <- lapply(df[to_chars], as.character)
+
+    ## Add timestamp
+    df <- cbind(df, last_cached_at = Sys.time())
 
     ## Write out to postgres
     dbWriteTableUntilSuccess(dbconn, tblname, df, row.names = FALSE, append = append)

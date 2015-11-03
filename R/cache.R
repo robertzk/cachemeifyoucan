@@ -526,8 +526,11 @@ data_injector_cached <- function(fcn_call, keys) {
 read_df_from_a_shard <- function(fcn_call, keys, shard) {
   sql <- paste("SELECT * FROM", shard, "WHERE", fcn_call$output_key, "IN (",
                paste(sanitize_sql(keys), collapse = ', '), ")")
-  db2df(dbGetQuery(fcn_call$con, sql),
+  df <- db2df(dbGetQuery(fcn_call$con, sql),
         fcn_call$con, fcn_call$output_key)
+
+  df$last_cached_at <- NULL
+  df
 }
 
 ## Gotta love some method dispatch here in cachemeifyoucan
