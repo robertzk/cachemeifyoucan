@@ -48,6 +48,7 @@ After this setup, calling something like `cached_amazon_reviews(c(1, 2))`
 twice will cause the second call to use the database caching layer, speeding
 up calls that ask for already-computed primary keys.
 
+
 # Installation
 
 This package is not yet available from CRAN (as of May 29, 2015).
@@ -60,6 +61,7 @@ devtools::install_github("robertzk/cachemeifyoucan")
 
 When using the database caching features, you will need to setup a
 `database.yml` file as in the example above.
+
 
 # Further examples and features
 
@@ -239,6 +241,7 @@ wrap_sql_table <- function(table_name, yr, mth, dbname = 'default') {
 }
 ```
 
+
 # Debugging
 
 Sometimes it might be interesting to take a look at the underlying database
@@ -255,6 +258,24 @@ Shard dimensions:
 11 cached keys
 5 uncached keys
 ```
+
+## safe_columns
+
+If you have trouble with your cache ending up writing additional columns when
+this isn't supposed to be happening (e.g., an event that should be triggering
+cache invalidation), you can use `safe_columns = TRUE` as a parameter to `cache`
+in order to error instead of writing additional columns.
+
+Additionally, you can pass a function as `safe_columns = fn` as long as that
+function takes no arguments and returns `TRUE`.  This function will then be called
+when the error occurs.
+
+For example, you can debug a safe columns failure with:
+
+```R
+cache(..., safe_columns = function() { browser(); TRUE })
+```
+
 
 # Testing
 

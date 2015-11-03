@@ -48,6 +48,14 @@
 #'
 #'   Note that the \href{http://github.com/peterhurford/batchman}{batchman}
 #'   package should be installed for batching to take effect.
+#' @param safe_columns logical or function.  If safe_columns = \code{TRUE}
+#'   and a caching call would add additional columns for an already existing
+#'   cache with already existing columns, the function will instead crash.
+#'   If safe_columns is a function, that function will be called.  The function
+#'   must return /code{TRUE} for this to work.  Also the function will be called
+#'   with no arguments.  This is mainly so you can write your own error message.
+#'   If safe_columns is /code{FALSE}, the additional columns will be added. 
+#'   Defaults \code{FALSE}.
 #' @return A function with a caching layer that does not call
 #'   \code{uncached_function} with already computed records, but retrieves
 #'   those results from an underlying database table.
@@ -224,12 +232,12 @@
 #'
 #' }
 cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_function),
-                  env = "cache", batch_size = 100) {
+                  env = "cache", batch_size = 100, safe_columns = FALSE) {
   stopifnot(is.function(uncached_function),
     is.character(prefix), length(prefix) == 1,
     is.character(key), length(key) > 0,
-    is.atomic(salt) || is.list(salt),
-    is.numeric(batch_size))
+    is.atomic(salt) || is.list(salt), is.numeric(batch_size),
+    (is.logical(safe_columns) || is.function(safe_columns)))
 
   cached_function <- new("function")
 
@@ -260,7 +268,7 @@ cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_f
       ),
       parent = environment(uncached_function))
 
-  build_cached_function(cached_function)
+  build_cached_function(cached_function, safe_columns)
 }
 
 #' Fetch the uncached function
@@ -278,7 +286,7 @@ uncached <- function(fn) {
   }
 }
 
-build_cached_function <- function(cached_function) {
+build_cached_function <- function(cached_function, safe_columns) {
   ## All cached functions will have the same body.
   body(cached_function) <- quote({
     ## If a user calls the uncached_function with, e.g.,
@@ -339,15 +347,16 @@ build_cached_function <- function(cached_function) {
     ## Log cache metadata if in debug mode
     status <- cachemeifyoucan:::debug_info(fcn_call, keys)
 
-    if (!is_dry) cachemeifyoucan:::execute(fcn_call, keys) else status
+    if (!is_dry) cachemeifyoucan:::execute(fcn_call, keys, safe_columns) else status
   })
 
   class(cached_function) <- append("cached_function", class(cached_function))
+  environment(cached_function)$safe_columns <- safe_columns
   cached_function
 }
 
 ## A helper function to execute a cached function call.
-execute <- function(fcn_call, keys) {
+execute <- function(fcn_call, keys, safe_columns) {
 
   ## If some keys were populated by another process, we will keep track of those
   ## so that we do not have to duplicate the caching effort.
@@ -366,7 +375,8 @@ execute <- function(fcn_call, keys) {
     keys <- uncached_keys
     if (!length(keys)) return(data.frame())
     uncached_data <- compute_uncached_data(fcn_call, keys)
-    try_write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key)
+    write_data_safely(fcn_call$con, fcn_call$table,
+      uncached_data, fcn_call$output_key, safe_columns)
     uncached_data
   }
 
@@ -448,10 +458,6 @@ debug_info <- function(fcn_call, keys) {
     shard_names = shard_names,
     table_name = fcn_call$table
   )
-}
-
-try_write_data_safely <- function(...) {
-  try(write_data_safely(...))
 }
 
 compute_uncached_data <- function(fcn_call, uncached_keys) {
