@@ -68,6 +68,7 @@ translate_column_names <- function(names, dbconn) {
 #' @param key. Identifier of database table.
 db2df <- function(df, dbconn, key) {
   df[[key]] <- NULL
+  df$last_cached_at <- NULL
   colnames(df) <- translate_column_names(colnames(df), dbconn)
   df
 }
@@ -315,7 +316,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
     df[to_chars] <- lapply(df[to_chars], as.character)
 
     ## Add timestamp
-    df$last_cached_at <- Sys.time()
+    df$last_cached_at <- format(Sys.time(), tz = "UTC")
 
     ## Write out to postgres
     dbWriteTableUntilSuccess(dbconn, tblname, df, row.names = FALSE, append = append)
