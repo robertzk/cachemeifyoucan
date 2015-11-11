@@ -394,6 +394,8 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
     error = function(e) {
       if (grepl("Safe Columns Error", conditionMessage(e))) {
         stop(e)
+      } else if (grepl("COPY", conditionMessage(e))) {
+        browser() 
       } else {
         message("An error occured:", e)
         message("Rollback!")
