@@ -145,6 +145,8 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
   if (!is.data.frame(df)) return(FALSE)
   if (nrow(df) == 0) return(FALSE)
 
+  meta_cols <- c("last_cached_at")
+
   if (missing(key)) {
     id_cols <- grep('(_|^)id$', colnames(df), value = TRUE)
     if (length(id_cols) == 0)
@@ -315,7 +317,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
     to_chars <- unname(vapply(df, function(x) is.factor(x) || is.ordered(x) || is.logical(x), logical(1)))
     df[to_chars] <- lapply(df[to_chars], as.character)
 
-    ## Add timestamp
+    ## Add meta data
     df$last_cached_at <- format(Sys.time(), tz = "UTC")
 
     ## Write out to postgres
@@ -333,7 +335,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
     df_shard_map <- df2shards(dbconn, df, shard_names, key)
 
     ## Actually write the data to the database
-    lapply(df_shard_map, function(lst) {
+    actually_write_data <- function(lst) {
       tblname <- lst$shard_name
       df <- lst$df
       if (!DBI::dbExistsTable(dbconn, tblname)) {
@@ -346,6 +348,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
       one_row <- if (DBI::dbExistsTable(dbconn, tblname)) {
         DBI::dbGetQuery(dbconn, paste("SELECT * FROM ", tblname, " LIMIT 1"))
       } else NULL
+
       if (NROW(one_row) == 0) {
         ## The shard is empty! Delete it and write to it, finally
         ## Also, it's a great opportunity to enforce indexes on this table!
@@ -359,7 +362,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
       ## Columns that are missing in database need to be created
       new_names <- get_hashed_names(colnames(df))
       ## We also keep non-hashed versions of ID columns around for convenience.
-      new_names <- c(new_names, id_cols)
+      new_names <- c(new_names, id_cols, meta_cols)
       missing_cols <- !is.element(new_names, colnames(one_row))
       # TODO: (RK) Check reverse, that we're not missing any already-present columns
       removes <- integer(0)
@@ -385,25 +388,26 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
 
       write_column_hashed_data(df, tblname, append = TRUE)
       DBI::dbGetQuery(dbconn, 'COMMIT')
-    })
-    },
-    warning = function(w) {
-      message("An warning occured:", w)
+    }
+
+    lapply(df_shard_map, actually_write_data)
+  },
+  warning = function(w) {
+    message("An warning occured:", w)
+    message("Rollback!")
+    DBI::dbRollback(dbconn)
+    DBI::dbGetQuery(dbconn, 'COMMIT')
+  },
+  error = function(e) {
+    if (grepl("Safe Columns Error", conditionMessage(e))) {
+      stop(e)
+    } else {
+      message("An error occured:", e)
       message("Rollback!")
       DBI::dbRollback(dbconn)
       DBI::dbGetQuery(dbconn, 'COMMIT')
-    },
-    error = function(e) {
-      if (grepl("Safe Columns Error", conditionMessage(e))) {
-        stop(e)
-      } else {
-        message("An error occured:", e)
-        message("Rollback!")
-        DBI::dbRollback(dbconn)
-        DBI::dbGetQuery(dbconn, 'COMMIT')
-      }
     }
-  )
+  })
   invisible(TRUE)
 }
 
