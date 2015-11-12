@@ -473,7 +473,7 @@ get_column_names_from_table <- function(fcn_call) {
     df <- if (DBI::dbExistsTable(fcn_call$con, shard))
       DBI::dbGetQuery(fcn_call$con, paste0("SELECT * from ", shard, " LIMIT 1"))
     else data.frame()
-    as.character(setdiff(colnames(df), fcn_call$output_key))
+    as.character(setdiff(colnames(df), c(fcn_call$output_key, META_COLS)))
   })
   ## We don't really have to unique, but better safe than sorry!
   unique(c(fcn_call$output_key, translate_column_names(unlist(lst), fcn_call$con)))

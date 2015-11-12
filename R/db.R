@@ -4,6 +4,9 @@ CLASS_MAP <- list(
   POSIXct = 'timestamp'
 )
 
+# Columns that store meta data for shards
+META_COLS <- c("last_cached_at")
+
 #' Database table name for a given prefix and salt.
 #'
 #' @param prefix character. Prefix.
@@ -144,8 +147,6 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
   if (is.null(df)) return(FALSE)
   if (!is.data.frame(df)) return(FALSE)
   if (nrow(df) == 0) return(FALSE)
-
-  meta_cols <- c("last_cached_at")
 
   if (missing(key)) {
     id_cols <- grep('(_|^)id$', colnames(df), value = TRUE)
@@ -362,7 +363,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
       ## Columns that are missing in database need to be created
       new_names <- get_hashed_names(colnames(df))
       ## We also keep non-hashed versions of ID columns around for convenience.
-      new_names <- c(new_names, id_cols, meta_cols)
+      new_names <- c(new_names, id_cols, META_COLS)
       missing_cols <- !is.element(new_names, colnames(one_row))
       # TODO: (RK) Check reverse, that we're not missing any already-present columns
       removes <- integer(0)
