@@ -71,7 +71,7 @@ translate_column_names <- function(names, dbconn) {
 #' @param key. Identifier of database table.
 db2df <- function(df, dbconn, key) {
   df[[key]] <- NULL
-  df$last_cached_at <- NULL
+  for (meta in META_COLS) df[meta] <- NULL
   colnames(df) <- translate_column_names(colnames(df), dbconn)
   df
 }
