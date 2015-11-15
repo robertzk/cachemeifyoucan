@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+<title>Index. cachemeifyoucan 0.2.3.1</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="author" content="Robert Krzyzanowski &lt;technoguyrob@gmail.com&gt;">
+
+<link href="css/bootstrap.css" rel="stylesheet">
+<link href="css/bootstrap-responsive.css" rel="stylesheet">
+<link href="css/highlight.css" rel="stylesheet">
+<link href="css/staticdocs.css" rel="stylesheet">
+
+<!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+<![endif]-->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+<script type="text/javascript"
+  src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+  </head>
+
+  <body>
+    <div class="navbar">
+  <div class="navbar-inner">
+    <div class="container">
+      <a class="brand" href="#">cachemeifyoucan 0.2.3.1</a>
+      <div class="nav">
+        <ul class="nav">
+          <li><a href="index.html"><i class="icon-home icon-white"></i> Index</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+    <div class="container">
+      <header>
+        
+      </header>
+      
+      <div class="row">
+  <div class="span8">
+    <h1>A general caching layer for R projects <a href="https://travis-ci.org/robertzk/cachemeifyoucan"><img src="https://travis-ci.org/robertzk/cachemeifyoucan.svg?branch=master" alt="Build Status"/></a> <a href="https://coveralls.io/r/robertzk/cachemeifyoucan"><img src="https://coveralls.io/repos/robertzk/cachemeifyoucan/badge.svg?branch=master" alt="Coverage Status"/></a> <img src="https://img.shields.io/github/tag/robertzk/cachemeifyoucan.svg" alt="Release Tag"/> <a href="http://robertzk.github.io/cachemeifyoucan/"><img src="https://img.shields.io/badge/rocco--docs-%E2%9C%93-blue.svg" alt="Documentation"/></a></h1>
+
+<p>One of the most frustrating parts about being a data scientist is
+waiting for data or other large downloads. This package offers a caching
+layer for arbitrary functions that relies on a database backend.</p>
+
+<p>Imagine you have a function that requires network communication or
+complex computation to produce some dataframe, where each row has
+a primary key.</p>
+
+<pre><code class="r">fetch_amazon_reviews &lt;- function(review_id) {
+  # Return a data.frame of Amazon reviews obtained from Amazon&#39;s API.
+}
+</code></pre>
+
+<p>Ideally, we should only ever have to run this function once per unique
+<code>review_id</code>, since we should be able to cache the rows that have already
+been computed. Using cachemeifyoucan, we can write:</p>
+
+<pre><code class="r">cached_amazon_reviews &lt;- cachemeifyoucan::cache(
+  fetch_amazon_reviews,
+  key    = &quot;review_id&quot;,
+  con    = &quot;path/to/database.yml&quot;,
+  env    = &quot;cache&quot;
+)
+</code></pre>
+
+<p>This will use the database connection specified in the database.yml file
+at <code>path/to/database.yml</code> to cache the function, and <em>only</em> fetch new
+records when that <code>review_id</code> has never yet been passed to
+<code>cached_amazon_reviews</code>.</p>
+
+<pre><code class="yml"># path/to/database.yml
+cache: # We only support postgres for now. Make sure you have instaled
+       # and loaded the RPostgreSQL package.
+  adapter: PostgreSQL
+  host: localhost     # Or your database host
+  dbname: name        # Name of the caching database  
+  user: username      # The user name for the database connection
+  password: password  # The password for the database connection
+</code></pre>
+
+<p>After this setup, calling something like <code>cached_amazon_reviews(c(1, 2))</code>
+twice will cause the second call to use the database caching layer, speeding
+up calls that ask for already-computed primary keys.</p>
+
+<h1>Installation</h1>
+
+<p>This package is not yet available from CRAN (as of May 29, 2015).
+To install the latest development builds directly from GitHub, run this instead:</p>
+
+<pre><code class="R">if (!require(&quot;devtools&quot;)) install.packages(&quot;devtools&quot;)
+devtools::install_github(&quot;robertzk/cachemeifyoucan&quot;)
+</code></pre>
+
+<p>When using the database caching features, you will need to setup a
+<code>database.yml</code> file as in the example above.</p>
+
+<h1>Further examples and features</h1>
+
+<p>These examples assume you have a database connection object
+(as specified in the DBI package) in a local variable <code>con</code>.</p>
+
+<p>Imagine we have a function that returns a data.frame of information
+about IMDB titles through their API. It takes an integer vector of
+IDs and returns a data.frame with an &ldquo;id&rdquo; column, with one row for
+each title. (for example, 111161 would correspond to
+<a href="http://www.imdb.com/title/tt111161/">The Shawkshank Redemption</a>).</p>
+
+<pre><code class="r">amazon_info &lt;- function(id) {
+  # Call external API.
+}
+</code></pre>
+
+<p>Sending HTTP requests to Amazon and waiting for the response is
+computationally intensive, so if we ask for some IDs that have
+already been computed in the past, it would be useful to not
+make additional HTTP requests for those records. For example,
+we may want to do some processing on all Amazon titles. However,
+new records are created each day. Instead of parsing all
+the historical records on each execution, we would like to only
+parse new records; old records would be retrieved from a database
+table that had the same column names as a typical output data.frame
+of the <code>amazon_info</code> function.</p>
+
+<pre><code class="r">cached_amazon_info &lt;- cachemeifyoucan::cache(amazon_info, key = &#39;id&#39;, con = con)
+</code></pre>
+
+<p>By using the <code>cache</code> function, we are asking for the following:</p>
+
+<ol>
+<li>If we call <code>cached_amazon_info</code> with a vector of integer IDs,
+ take the subset of IDs that have already been returned from
+ a previous call to <code>cached_amazon_info</code>. Retrieve the data.frame
+ for these records from an underlying database table.</li>
+<li>The remaining IDs (those we have never passed to <code>cached_amazon_info</code>)
+ should be fed to the base <code>amazon_info</code> function as if we had
+ called it with this subset. This will yield another data.frame that
+ was computed using live HTTP requests.</li>
+</ol>
+
+<p>The <code>cached_amazon_info</code> function will return the union (<code>rbind</code>) of these
+two data sets as one single data set, as if we had called <code>amazon_info</code>
+by itself. It will also cache the second data set so another identical
+call to <code>cached_amazon_info</code> will not trigger any additional HTTP requests.</p>
+
+<h2>Salts</h2>
+
+<p>Imagine our <code>amazon_info</code> function is slightly more complicated:
+instead of always returning the same information about film titles,
+it has an additional parameter <code>type</code> that controls whether we
+want info about the filmography or about the reviews. The output
+of this function will still be data.frame&#39;s with an <code>id</code> column
+and one row for each title, but the other columns can be different
+now depending on the <code>type</code> parameter.</p>
+
+<pre><code class="r">amazon_info2 &lt;- function(id, type = &#39;filmography&#39;) {
+  if (identical(type, &#39;filmography&#39;)) { return(amazon_info(id)) }
+  else { return(review_amazon_info(id)) } # Assume we have this other function
+}
+</code></pre>
+
+<p>If we wish to cache <code>amazon_info2</code>, we need to use different underlying
+database tables depending on the given <code>type</code>. One table may have
+columns like <code>num_actors</code> or <code>film_length</code> and the other may have
+columns such as <code>num_reviews</code> and <code>avg_rating</code>.</p>
+
+<pre><code class="r">cached_amazon_info2 &lt;- cachemeifyoucan::cache(amazon_info2, key = &#39;id&#39;,
+  salt = &#39;type&#39;, con = con)
+</code></pre>
+
+<p>We have told the caching layer to use the <code>type</code> parameter as the &ldquo;salt&rdquo;.
+This means different values of <code>type</code> will use different underlying
+database tables for caching. It is up to the user to construct a
+function like <code>amazon_info2</code> well so that it always returns a data.frame
+with exactly the same column names if the <code>type</code> parameter is held fixed.</p>
+
+<p>The salt should usually consist of a collection of parameters (typically
+only one, <code>type</code> as in this example) that have a small number of possible
+values; otherwise, many database tables would be created for different
+values of the salt. Consider the following example.</p>
+
+<pre><code class="r">bad_amazon_filmography &lt;- function(id, actor_id) {
+  # Given a single actor_id and a vector of title IDs,
+  # return information about that actor&#39;s role in the film.
+}
+
+bad_cached_amazon_filmography &lt;-
+  cachemeifyoucan::cache(bad_amazon_filmography, key = &#39;id&#39;,
+    salt = &#39;actor_id&#39;, con = con)
+</code></pre>
+
+<p>We will now be creating a separate table each time we call
+<code>bad_amazon_filmography</code> for a different actor!</p>
+
+<h2>Prefixes</h2>
+
+<p>It is very important to give the function you are caching a prefix:
+when it is stored in the database, its table name will be the prefix
+combined with some string derived from the values in the salt.</p>
+
+<pre><code class="r">cached_review_amazon_info &lt;- cachemeifyoucan::cache(review_amazon_info,
+  key = &#39;id&#39;, con = con)
+</code></pre>
+
+<p>Remember our <code>review_amazon_info</code> function from an earlier example?
+If we attempted to cache it without a prefix while also caching
+the vanilla <code>amazon_info</code> function, the same database table would be
+used for both functions! Since function representation in R is complex
+and there is no good way in general to determine whether two functions
+are identical, it is up to the user to determine a good prefix for
+their function (usually the function&#39;s name) so that it does not clash
+with other database tables.</p>
+
+<pre><code class="r">cached_amazon_info &lt;- cachemeifyoucan::cache(amazon_info,
+  prefix = &#39;amazon_info&#39;, key = &#39;id&#39;, con = con)
+cached_review_amazon_info &lt;- cachemeifyoucan::cache(review_amazon_info,
+  prefix = &#39;review_amazon_info&#39;, key = &#39;id&#39;, con = con)
+</code></pre>
+
+<p>We will now use different database tables for these two functions.
+You should only use alphanumeric characters or underscores in the
+prefix, as it will be part of a database table name.</p>
+
+<h2>force.</h2>
+
+<p><code>force.</code> is a reserved argument for the to-be-cached function. If
+it is specified to be <code>TRUE</code>, the caching layer will forcibly
+repopulate the database tables for the given ids. The default value
+is <code>FALSE</code>.</p>
+
+<pre><code class="r">cached_amazon_info &lt;- cachemeifyoucan::cache(amazon_info,
+  prefix = &#39;amazon_info&#39;, key = &#39;id&#39;, con = con)
+cached_amazon_info(c(10, 20), force. = TRUE) # Will forcibly repopulate.
+</code></pre>
+
+<h2>Advanced features</h2>
+
+<p>We can use multiple primary keys and salts.</p>
+
+<pre><code class="r">grab_sql_table &lt;- function(table_name, year, month, dbname = &#39;default&#39;) {
+  # Imagine we have some function that given a table name
+  # and a database name returns a data.frame with aggregate
+  # information about records created in that table from a
+  # given year and month (e.g., ensuring each table has a
+  # created_at column). This function will return a data.frame
+  # with one record for each year-month pair, with at least
+  # the columns &quot;year&quot; and &quot;month&quot;.
+}
+
+cached_sql_table &lt;- cachemeifyoucan::cache(grab_sql_table,
+  key = c(&#39;year&#39;, &#39;month&#39;), salt = c(&#39;table_name&#39;, &#39;dbname&#39;), con = con,
+  prefix = &#39;sql_table&#39;)
+</code></pre>
+
+<p>We would like to use a separate table to cache each combination of
+table_name and dbname. Note that the character vector passed into
+the <code>salt</code> parameter has to exactly match the names of the formal
+arguments in the initial function, and must also be the name of
+the columns returned by the data.frame. If these do not agree,
+you can wrap your function. For example, if the data.frame returned
+has &#39;mth&#39; and &#39;yr&#39; columns, you could instead cache the wrapper:</p>
+
+<pre><code class="r">wrap_sql_table &lt;- function(table_name, yr, mth, dbname = &#39;default&#39;) {
+  grab_sql_table(table_name = table_name, year = yr, month = mth, dbname = dbname)
+}
+</code></pre>
+
+<h1>Debugging</h1>
+
+<p>Sometimes it might be interesting to take a look at the underlying database
+tables for debugging purposes. However, the contents of the database are
+somewhat obfuscated. If you set <code>cachemeifyoucan.debug</code> option to TRUE will
+every time you execute a cached function you will see some additional
+metadata printed out, helping you navigate the database.
+An example output looks like this:</p>
+
+<pre><code>Using table name: amazon_data_c3204c0a47beb9238a787058d4f03834
+Shard dimensions:
+  shard1_f8e8e2b41ac5c783d0954ce588f220fc: 45 rows * 308 columns
+11 cached keys
+5 uncached keys
+</code></pre>
+
+<h2>safe_columns</h2>
+
+<p>If you have trouble with your cache ending up writing additional columns when
+this isn&#39;t supposed to be happening (e.g., an event that should be triggering
+cache invalidation), you can use <code>safe_columns = TRUE</code> as a parameter to <code>cache</code>
+in order to error instead of writing additional columns.</p>
+
+<p>Additionally, you can pass a function as <code>safe_columns = fn</code> as long as that
+function takes no arguments and returns <code>TRUE</code>.  This function will then be called
+when the error occurs.</p>
+
+<p>For example, you can debug a safe columns failure with:</p>
+
+<pre><code class="R">cache(..., safe_columns = function() { browser(); TRUE })
+</code></pre>
+
+<h1>Testing</h1>
+
+<p>To run tests locally, you&#39;ll need the following:</p>
+
+<ul>
+<li>A working PostgreSQL installation and a dedicated user account, &ldquo;postgres&rdquo;.</li>
+<li>A database called &ldquo;travis&rdquo; that user &ldquo;postgres&rdquo; can access.</li>
+</ul>
+
+<p>In order to run the tests in your R console, run the following commands:</p>
+
+<pre><code class="R">devtools::test(&quot;/path/to/cachemeifyoucan&quot;)
+</code></pre>
+
+<h1>Adapters</h1>
+
+<p>Eventually, it will be possible to specify arbitrary caching backends: a database,
+S3, a flat file. For more complex strategies, it will be a little bit of work
+to set up the correct caching call, but the resulting performance
+benefits should be worth it.</p>
+
+<p>For now cachemeifyoucan works with PostgreSQL.</p>
+
+
+    <h2>Help topics</h2>
+
+    <h3></h3>
+    
+    
+    <ul class="index">
+        
+      <li>
+        <code><a href="cache.html">cache</a></code><br />Apply a database caching layer to an arbitrary R function.</li>
+            
+      <li>
+        <code><a href="cachemeifyoucan.html">cachemeifyoucan</a></code>(cachemeifyoucan-package)<br />One of the most frustrating parts about being a data scientist
+</li>
+            
+      <li>
+        <code><a href="column_names_map.html">column_names_map</a></code><br />Fetch the map of column names.</li>
+            
+      <li>
+        <code><a href="create_table.html">create_shards_table</a></code><br />Create the table <=> shards map.</li>
+            
+      <li>
+        <code><a href="db2df.html">db2df</a></code>(add_index)<br />Convert the raw fetched database table to a readable data frame.</li>
+            
+      <li>
+        <code><a href="dbWriteTableUntilSuccess.html">dbWriteTableUntilSuccess</a></code><br />Try and check dbWriteTable until success</li>
+            
+      <li>
+        <code><a href="error_fn.html">error_fn</a></code><br />Stop on given errors and print corresponding error message.</li>
+            
+      <li>
+        <code><a href="get_hashed_names.html">get_hashed_names</a></code><br />MD5 digest of column names.</li>
+            
+      <li>
+        <code><a href="get_new_key.html">get_new_key</a></code><br />setdiff current ids with those in the table of the database.</li>
+            
+      <li>
+        <code><a href="get_shards_for_table.html">get_shards_for_table</a></code><br />Fetch all the shards for the given table name.</li>
+            
+      <li>
+        <code><a href="remove_old_key.html">remove_old_key</a></code><br />remove old keys to maintain uniqueness of "id" for the sake of force pushing</li>
+            
+      <li>
+        <code><a href="table_migrate.html">table_migrate</a></code><br />Table migrate</li>
+            
+      <li>
+        <code><a href="table_name.html">table_name</a></code><br />Database table name for a given prefix and salt.</li>
+            
+      <li>
+        <code><a href="translate_column_names.html">translate_column_names</a></code><br />Translate column names using the column_names table from MD5 to raw.</li>
+            
+      <li>
+        <code><a href="uncached.html">uncached</a></code><br />Fetch the uncached function</li>
+            
+      <li>
+        <code><a href="write_data_safely.html">write_data_safely</a></code><br />Write data.frames to DB addressing pitfalls</li>
+    
+    </ul>
+  </div>
+  
+  <div class="span3 offset1">
+        
+    <h2>Dependencies</h2>
+    <ul>
+      
+      <li><strong>Imports</strong>: berdie, RPostgres, digest, DBI, plyr, dbtest</li>
+      <li><strong>Suggests</strong>: knitr, testthatsomemore, batchman</li>
+      
+    </ul>
+    <h2>Authors</h2>
+    <ul>
+      <li><a href="mailto:technoguyrob@gmail.com">Robert Krzyzanowski</a> [aut, cre]</li>
+    </ul>
+
+  </div>
+</div>
+      
+      <footer>
+      <p class="pull-right"><a href="#">Back to top</a></p>
+<p>Built by <a href="https://github.com/hadley/staticdocs">staticdocs</a>. Styled with <a href="http://twitter.github.com/bootstrap">bootstrap</a>.</p>
+      </footer>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+<title>cache. cachemeifyoucan 0.2.3.1</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="author" content="">
+
+<link href="css/bootstrap.css" rel="stylesheet">
+<link href="css/bootstrap-responsive.css" rel="stylesheet">
+<link href="css/highlight.css" rel="stylesheet">
+<link href="css/staticdocs.css" rel="stylesheet">
+
+<!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+<![endif]-->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+<script type="text/javascript"
+  src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+  </head>
+
+  <body>
+    <div class="navbar">
+  <div class="navbar-inner">
+    <div class="container">
+      <a class="brand" href="#">cachemeifyoucan 0.2.3.1</a>
+      <div class="nav">
+        <ul class="nav">
+          <li><a href="index.html"><i class="icon-home icon-white"></i> Index</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+    <div class="container">
+      <header>
+        
+      </header>
+      
+      <h1>Apply a database caching layer to an arbitrary R function.</h1>
+
+<div class="row">
+  <div class="span8">
+    <h2>Usage</h2>
+    <pre><div>cache(uncached_function, key, salt, con, prefix&nbsp;=&nbsp;deparse(uncached_function), env&nbsp;=&nbsp;"cache", batch_size&nbsp;=&nbsp;100, safe_columns&nbsp;=&nbsp;FALSE)</div></pre>
+    
+    <h2>Arguments</h2>
+    <dl>
+      <dt>uncached_function</dt>
+      <dd>function. The function to cache.</dd>
+      <dt>key</dt>
+      <dd>character. A character vector of primary keys. If <code>key</code> is unnamed,
+the user guarantees that <code>uncached_function</code> has these as formal arguments
+and that it returns a data.frame containing columns with at least those
+names. For example, if we are caching a function that looks like
+<code>function(author) { ... }</code>, we expect its output to be data.frames
+containing an <code>"author"</code> column with one record for each author.
+In this situation, <code>key = "author"</code>. Otherwise if <code>key</code> is
+a named length 1 vector, the name shall match the uncached_function key
+argument, the value shall be matched to at least one of the columns the
+returned data.frame contains.</dd>
+      <dt>salt</dt>
+      <dd>character. The names of the formal arguments of <code>uncached_function</code>
+for which a unique value at calltime should use a different database
+table. In other words, if <code>uncached_function</code> has arguments
+<code>id, x, y</code>, but different kinds of data.frames (i.e., ones with
+different types and/or column names) will be returned depending
+on the value of <code>x</code> or <code>y</code>, then we can set
+<code>salt = c("x", "y")</code> to use a different database table for
+each combination of values of <code>x</code> and <code>y</code>. For example,
+if <code>x</code> and <code>y</code> are only allowed to be <code>TRUE</code> or
+<code>FALSE</code>, with potentially four different kinds of data.frame
+outputs, then up to four tables would be created.</dd>
+      <dt>con</dt>
+      <dd>SQLConnection or character. Database connection object, <em>or</em>
+character path to database.yml file. In the latter case, you will have to
+specify an <code>env</code> parameter that determines the environment used for
+the database.yml file.</dd>
+      <dt>prefix</dt>
+      <dd>character. Database table prefix. A different prefix should
+be used for each cached function so that there are no table collisions.
+Optional, but highly recommended. By default, the deparsed name of the
+<code>uncached_function</code> parameter.</dd>
+      <dt>env</dt>
+      <dd>character. The environment of the database connection if con
+is a yaml cofiguration file. By default, <code>"cache"</code>.</dd>
+      <dt>batch_size</dt>
+      <dd>integer. Usually, the uncached operation is slow
+  (or we would not have to cache it!). However, fetching data from the
+  database is fast. To handle this dichotomy, the <code>batch_size</code>
+  parameter gives the ability to control the chunks in which to compute
+  and cache the uncached operation. This makes it more robust to failures,
+  and ensures fetching of uncached data is partially stored even when
+  errors occur midway through the process. The default is <code>100</code>.
+
+  Note that the <a href = 'http://github.com/peterhurford/batchman'>batchman</a>
+  package should be installed for batching to take effect.</dd>
+      <dt>safe_columns</dt>
+      <dd>logical or function.  If safe_columns = <code>TRUE</code>
+and a caching call would add additional columns for an already existing
+cache with already existing columns, the function will instead crash.
+If safe_columns is a function, that function will be called.  The function
+must return /codeTRUE for this to work.  Also the function will be called
+with no arguments.  This is mainly so you can write your own error message.
+If safe_columns is /codeFALSE, the additional columns will be added. 
+Defaults <code>FALSE</code>.</dd>
+    </dl>
+    
+    <div class="Value">
+      <h2>Value</h2>
+
+      <p><dl>
+A function with a caching layer that does not call
+  <code>uncached_function</code> with already computed records, but retrieves
+  those results from an underlying database table.
+</dl></p>
+  
+    </div>
+
+    <div class="Description">
+      <h2>Description</h2>
+
+      <p>Requesting data from an API or performing queries can sometimes yield
+dataframe outputs that are easily cached according to some primary key.
+This function makes it possible to cache the output along the primary
+key, while only using the uncached function on those records that
+have not been computed before.</p>
+  
+    </div>
+    
+    <h2 id="examples">Examples</h2>
+    <pre class="examples"><div class='input'>## Not run: 
+# # These examples assume you have a database connection object
+# # (as specified in the DBI package) in a local variable `con`.
+# 
+# # Imagine we have a function that returns a data.frame of information
+# # about IMDB titles through their API. It takes an integer vector of
+# # IDs and returns a data.frame with an &quot;id&quot; column, with one row for
+# # each title. (for example, 111161 would correspond to
+# # http://www.imdb.com/title/tt111161/ which is The Shawshank Redemption).
+# amazon_info &lt;- function(id) {
+#   # Call external API.
+# }
+# 
+# # Sending HTTP requests to Amazon and waiting for the response is
+# # computationally intensive, so if we ask for some IDs that have
+# # already been computed in the past, it would be useful to not
+# # make additional HTTP requests for those records. For example,
+# # we may want to do some processing on all Amazon titles. However,
+# # new records are created each day. Instead of parsing all
+# # the historical records on each execution, we would like to only
+# # parse new records; old records would be retrieved from a database
+# # table that had the same column names as a typical output data.frame
+# # of the `amazon_info` function.
+# cached_amazon_info &lt;- cachemeifyoucan::cache(amazon_info, key = &#39;id&#39;, con = con)
+# 
+# # By using the `cache` function, we are asking for the following:
+# #   (1) If we call `cached_amazon_info` with a vector of integer IDs,
+# #       take the subset of IDs that have already been returned from
+# #       a previous call to `cached_amazon_info`. Retrieve the data.frame
+# #       for these records from an underlying database table.
+# #   (2) The remaining IDs (those we have never passed to `cached_amazon_info`)
+# #       should be fed to the base `amazon_info` function as if we had
+# #       called it with this subset. This will yield another data.frame that
+# #       was computed using live HTTP requests.
+# # The `cached_amazon_info` function will return the union (rbind) of these
+# # two data sets as one single data set, as if we had called `amazon_info`
+# # by itself. It will also cache the second data set so another identical
+# # call to `cached_amazon_info` will not trigger any additional HTTP requests.
+# 
+# ###
+# # Salts
+# ###
+# 
+# # Imagine our `amazon_info` function is slightly more complicated:
+# # instead of always returning the same information about film titles,
+# # it has an additional parameter `type` that controls whether we
+# # want info about the filmography or about the reviews. The output
+# # of this function will still be data.frame&#39;s with an `id` column
+# # and one row for each title, but the other columns can be different
+# # now depending on the `type` parameter.
+# amazon_info2 &lt;- function(id, type = &#39;filmography&#39;) {
+#   if (identical(type, &#39;filmography&#39;)) { return(amazon_info(id)) }
+#   else { return(review_amazon_info(id)) } # Assume we have this other function
+# }
+# 
+# # If we wish to cache `amazon_info2`, we need to use different underlying
+# # database tables depending on the given `type`. One table may have
+# # columns like `num_actors` or `film_length` and the other may have
+# # column such as `num_reviews` and `avg_rating`.
+# cached_amazon_info2 &lt;- cachemeifyoucan::cache(amazon_info2, key = &#39;id&#39;,
+#   salt = &#39;type&#39;, con = con)
+# 
+# # We have told the caching layer to use the `type` parameter as the &quot;salt&quot;.
+# # This means different values of `type` will use different underlying
+# # database tables for caching. It is up to the user to construct a
+# # function like `amazon_info2` well so that it always returns a data.frame
+# # with exactly the same column names if the `type` parameter is held fixed.
+# # The salt should usually consist of a collection of parameters (typically
+# # only one, `type` as in this example) that have a small number of possible
+# # values; otherwise, many database tables would be created for different
+# # values of the salt. Consider the following example.
+# 
+# bad_amazon_filmography &lt;- function(id, actor_id) {
+#   # Given a single actor_id and a vector of title IDs,
+#   # return information about that actor&#39;s role in the film.
+# }
+# bad_cached_amazon_filmography &lt;-
+#   cachemeifyoucan::cache(bad_amazon_filmography, key = &#39;id&#39;,
+#     salt = &#39;actor_id&#39;, con = con)
+# 
+# # We will now be creating a separate table each time we call
+# # `bad_amazon_filmography` for a different actor!
+# 
+# ###
+# # Prefixes
+# ###
+# 
+# # It is very important to give the function you are caching a prefix:
+# # when it is stored in the database, its table name will be the prefix
+# # combined with some string derived from the values in the salt.
+# 
+# cached_review_amazon_info &lt;- cachemeifyoucan::cache(review_amazon_info,
+#   key = &#39;id&#39;, con = con)
+# 
+# # Remember our `review_amazon_info` function from an earlier example?
+# # If we attempted to cache it without a prefix while also caching
+# # the vanilla `amazon_info` function, the same database table would be
+# # used for both functions! Since function representation in R is complex
+# # and there is no good way in general to determine whether two functions
+# # are identical, it is up to the user to determine a good prefix for
+# # their function (usually the function&#39;s name) so that it does not clash
+# # with other database tables.
+# 
+# cached_amazon_info &lt;- cachemeifyoucan::cache(amazon_info,
+#   prefix = &#39;amazon_info&#39;, key = &#39;id&#39;, con = con)
+# cached_review_amazon_info &lt;- cachemeifyoucan::cache(review_amazon_info,
+#   prefix = &#39;review_amazon_info&#39;, key = &#39;id&#39;, con = con)
+# 
+# # We will now use different database tables for these two functions.
+# 
+# ###
+# # force.
+# ###
+# 
+# # `force.` is a reserved argument for the to-be-cached function. If
+# # it is specified to be `TRUE`, the caching layer will forcibly
+# # repopulate the database tables for the given ids. The default value
+# # is `FALSE`.
+# 
+# cached_amazon_info &lt;- cachemeifyoucan::cache(amazon_info,
+#   prefix = &#39;amazon_info&#39;, key = &#39;id&#39;, con = con)
+# cached_amazon_info(c(10, 20), force. = TRUE) # Will forcibly repopulate.
+# 
+# ###
+# # Advanced features
+# ###
+# 
+# # We can use multiple primary keys and salts.
+# grab_sql_table &lt;- function(table_name, year, month, dbname = &#39;default&#39;) {
+#   # Imagine we have some function that given a table name
+#   # and a database name returns a data.frame with aggregate
+#   # information about records created in that table from a
+#   # given year and month (e.g., ensuring each table has a
+#   # created_at column). This function will return a data.frame
+#   # with one record for each year-month pair, with at least
+#   # the columns &quot;year&quot; and &quot;month&quot;.
+# }
+# 
+# cached_sql_table &lt;- cachemeifyoucan::cache(grab_sql_table,
+#   key = c(&#39;year&#39;, &#39;month&#39;), salt = c(&#39;table_name&#39;, &#39;dbname&#39;), con = con,
+#   prefix = &#39;sql_table&#39;)
+# 
+# # We would like to use a separate table to cache each combination of
+# # table_name and dbname. Note that the character vector passed into
+# # the `salt` parameter has to exactly match the names of the formal
+# # arguments in the initial function, and must also be the name of
+# # the columns returned by the data.frame. If these do not agree,
+# # you can wrap your function. For example, if the data.frame returned
+# # has &#39;mth&#39; and &#39;yr&#39; columns, you could instead cache the wrapper:
+# wrap_sql_table &lt;- function(table_name, yr, mth, dbname = &#39;default&#39;) {
+#   grab_sql_table(table_name = table_name, year = yr, month = mth, dbname = dbname)
+# }
+# 
+# ###
+# # Debugging option `cachemeifyoucan.debug`
+# ###
+# 
+# Sometimes it might be interesting to take a look at the underlying database
+# tables for debugging purposes. However, the contents of the database are
+# somewhat obfuscated. If you set `cachemeifyoucan.debug` option to TRUE will
+# every time you execute a cached function you will see some additional metadata
+# printed out, helping you navigate the database. An example output looks like this:
+# 
+# Using table name: amazon_data_c3204c0a47beb9238a787058d4f03834
+# Shard dimensions:
+#   shard1_f8e8e2b41ac5c783d0954ce588f220fc: 45 rows * 308 columns
+# 11 cached keys
+# 5 uncached keys
+# 
+# ## End(Not run)
+</div></pre>
+  </div>
+  <div class="span4">
+    <!-- <ul>
+      <li>cache</li>
+    </ul>
+    <ul>
+      
+    </ul> -->
+      
+        
+  </div>
+</div>
+      
+      <footer>
+      <p class="pull-right"><a href="#">Back to top</a></p>
+<p>Built by <a href="https://github.com/hadley/staticdocs">staticdocs</a>. Styled with <a href="http://twitter.github.com/bootstrap">bootstrap</a>.</p>
+      </footer>
+    </div>
+  </body>
+</html>
