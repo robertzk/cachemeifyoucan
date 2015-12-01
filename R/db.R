@@ -283,7 +283,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
         } else one_row <- NULL
         ## Here we abuse the fact that ```NROW(NULL) == 0```
         if (NROW(one_row) == 0 || NCOL(one_row) == 2) {
-          ## This is very hacky...
+          ## TODO: This is very hacky...
           ## If we see only two columns in a shard, it means that we only stored
           ## the id and the hashed id. So basically this shard is useless!
           ## In this case we should drop it, and pretend this table doesn't exist
