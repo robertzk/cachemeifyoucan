@@ -49,6 +49,13 @@ table_migrate <- function(cached_fn, table_list) {
   }
 }
 
+#' Utility to update the cache when the salt is changed for an existing cache.
+#'
+#' @param dbconn SQLConnection. A database connection.
+#' @param prefix character.
+#' @param old_salt list. The old salt object.
+#' @param new_salt list. A new salt object.
+#' @export
 update_cache_salt <- function(dbconn, prefix, old_salt, new_salt) {
   ## Updating the salts of an existing cached function can be tricky. In order to do so,
   ## the old shards should be migrated over to ensure while still preserving the old shards
