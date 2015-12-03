@@ -34,6 +34,11 @@ get_shards_for_table <- function(dbconn, tbl_name) {
   DBI::dbGetQuery(dbconn, paste0("SELECT shard_name FROM table_shard_map where table_name='", tbl_name, "'"))$shard_name
 }
 
+#' Generate names for new shards
+generate_new_shard_names <- function(tbl_name, numshards) {
+  paste0("shard", seq(numshards), "_", digest::digest(tbl_name))
+}
+
 #' Create the table <=> shards map.
 #'
 #' @rdname create_table
@@ -82,7 +87,7 @@ db2df <- function(df, dbconn, key) {
 #' @param df. Raw fetched database table.
 #' @param dbconn SQLConnection. A database connection.
 #' @param key. Identifier of database table.
-add_index <- function(dbconn, tblname, key, idx_name) {
+add_index <- function(dbconn, tblname, key, idx_name = paste0("idx_", digest::digest(tblname))) {
   if (!tolower(substring(idx_name, 1, 1)) %in% letters) {
     stop(sprintf("Invalid index name '%s': must begin with an alphabetic character",
                  idx_name))
@@ -193,48 +198,18 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
     TRUE
   }
 
-  ## Input: table name and calculated shard names
-  write_table_shard_map <- function(tblname, shard_names) {
-    ## Example:
-    ##
-    ## |   | table_name  | shard_name  |
-    ## |---|-------------|-------------|
-    ## | 1 | tblname_1   | shard_1     |
-    ## | 2 | tblname_1   | shard_2     |
-    ## | 3 | tblname_2   | shard_3     |
-    table_shard_map <- data.frame(table_name = rep(tblname, length(shard_names)), shard_name = shard_names)
-    ## If we don't do this, we will get really weird bugs with numeric things stored as character
-    ## For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
-    old_options <- options(scipen = 20, digits = 20)
-    on.exit(options(old_options))
-
-    ## Store the map of logical table names to physical shards in the table_shard_map table.
-    if (!DBI::dbExistsTable(dbconn, "table_shard_map")) {
-      dbWriteTableUntilSuccess(dbconn, "table_shard_map", table_shard_map, append = FALSE)
-    } else {
-      shards <- get_shards_for_table(dbconn, tblname)
-      if (length(shards) > 0) {
-        table_shard_map <- table_shard_map[table_shard_map$shard_name %nin% shards, ]
-      }
-      if (NROW(table_shard_map) > 0) {
-        DBI::dbWriteTable(dbconn, "table_shard_map", table_shard_map, append = TRUE, row.names = FALSE)
-      }
-    }
-    TRUE
-  }
-
-  get_shard_names <- function(df, tblname) {
+  get_shard_names <- function(df, tbl_name) {
     ## Two cases: the shards already exist - or they don't
     ##
     ## Fetch existing shards
-    shards <- get_shards_for_table(dbconn, tblname)
+    shards <- get_shards_for_table(dbconn, tbl_name)
 
     ## come up with new shards if needed
     numcols <- NCOL(df)
     if (numcols == 0) return(NULL)
     numshards <- ceiling(numcols / MAX_COLUMNS_PER_SHARD)
     ## All data-containing tables will start with prefix *shard#{n}_*
-    newshards <- paste0("shard", seq(numshards), "_", digest::digest(tblname))
+    newshards <- generate_new_shard_names(tbl_name, numshards)
     if (length(shards) > 0) {
       ## only generate new shard names for shards that don't exist!
       unique(c(shards, newshards[-seq(length(shards))]))
@@ -331,7 +306,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
     ## Find the appropriate shards for this dataframe and tablename
     shard_names <- get_shard_names(df, tblname)
     ## Create references for these shards if needed
-    write_table_shard_map(tblname, shard_names)
+    write_table_shard_map(dbconn, tblname, shard_names)
     ## Split the dataframe into the appropriate shards
     df_shard_map <- df2shards(dbconn, df, shard_names, key)
 
@@ -412,6 +387,38 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
   invisible(TRUE)
 }
 
+#' Register shards in table_shard_map
+#'
+#' @param tblname character. Table name
+#' @param shard_name character. Calculated shard names given the table name
+write_table_shard_map <- function(dbconn, tblname, shard_names) {
+  ## Example:
+  ##
+  ## |   | table_name  | shard_name  |
+  ## |---|-------------|-------------|
+  ## | 1 | tblname_1   | shard_1     |
+  ## | 2 | tblname_1   | shard_2     |
+  ## | 3 | tblname_2   | shard_3     |
+  table_shard_map <- data.frame(table_name = rep(tblname, length(shard_names)), shard_name = shard_names)
+  ## If we don't do this, we will get really weird bugs with numeric things stored as character
+  ## For example, a row with ID 100000 will be stored as 10e+5, which is wrong.
+  old_options <- options(scipen = 20, digits = 20)
+  on.exit(options(old_options))
+
+  ## Store the map of logical table names to physical shards in the table_shard_map table.
+  if (!DBI::dbExistsTable(dbconn, 'table_shard_map')) {
+    dbWriteTableUntilSuccess(dbconn, 'table_shard_map', table_shard_map, append = FALSE)
+  } else {
+    shards <- get_shards_for_table(dbconn, tblname)
+    if (length(shards) > 0) {
+      table_shard_map <- table_shard_map[table_shard_map$shard_name %nin% shards, ]
+    }
+    if (NROW(table_shard_map) > 0) {
+      DBI::dbWriteTable(dbconn, 'table_shard_map', table_shard_map, append = TRUE, row.names = FALSE)
+    }
+  }
+  TRUE
+}
 #' setdiff current ids with those in the table of the database.
 #'
 #' @param dbconn SQLConnection. The database connection.
