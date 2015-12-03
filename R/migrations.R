@@ -1,17 +1,18 @@
 #' Update the cache when the salt is changed for an existing cache.
 #'
+#' Updating the salts of an existing cached function can be tricky. This utility
+#' handles that by copying over the cached data into new shards, add indexes, and
+#' add new entires into the table_shard_map.
+#'
+#' Note: The old shards aren't removed from the database but they can be safely
+#' removed once cached functions using the old salts are fully depricated.
+#'
 #' @param dbconn SQLConnection. A database connection.
-#' @param prefix character.
+#' @param prefix character. The prefix for the cached_fcn
 #' @param old_salt list. The old salt object.
 #' @param new_salt list. A new salt object.
 #' @export
 update_cache_salt <- function(dbconn, prefix, old_salt, new_salt) {
-  ## Updating the salts of an existing cached function can be tricky. In order to do so,
-  ## the old shards should be migrated over to ensure while still preserving the old shards
-  ## in case a single user doesn't update cachemeifyoucan in all their machines.
-
-  ## In this approach, we are simple copying over old data into new shards and adding new entries
-  ## to the table_shard_map for the new shard table
 
   old_table_name <- cachemeifyoucan:::table_name(prefix, old_salt)
   new_table_name <- cachemeifyoucan:::table_name(prefix, new_salt)

@@ -9,13 +9,19 @@ update_cache_salt(dbconn, prefix, old_salt, new_salt)
 \arguments{
 \item{dbconn}{SQLConnection. A database connection.}
 
-\item{prefix}{character.}
+\item{prefix}{character. The prefix for the cached_fcn}
 
 \item{old_salt}{list. The old salt object.}
 
 \item{new_salt}{list. A new salt object.}
 }
 \description{
-Update the cache when the salt is changed for an existing cache.
+Updating the salts of an existing cached function can be tricky. This utility
+handles that by copying over the cached data into new shards, add indexes, and
+add new entires into the table_shard_map.
+}
+\details{
+Note: The old shards aren't removed from the database but they can be safely
+removed once cached functions using the old salts are fully depricated.
 }
 
