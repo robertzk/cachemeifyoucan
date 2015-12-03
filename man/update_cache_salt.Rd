@@ -2,7 +2,7 @@
 % Please edit documentation in R/migrations.R
 \name{update_cache_salt}
 \alias{update_cache_salt}
-\title{Utility to update the cache when the salt is changed for an existing cache.}
+\title{Update the cache when the salt is changed for an existing cache.}
 \usage{
 update_cache_salt(dbconn, prefix, old_salt, new_salt)
 }
@@ -16,6 +16,6 @@ update_cache_salt(dbconn, prefix, old_salt, new_salt)
 \item{new_salt}{list. A new salt object.}
 }
 \description{
-Utility to update the cache when the salt is changed for an existing cache.
+Update the cache when the salt is changed for an existing cache.
 }
 
