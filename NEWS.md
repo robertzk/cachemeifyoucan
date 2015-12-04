@@ -1,3 +1,9 @@
+# Version 0.2.3.2
+* Add `last_cached_at` column in each shard.
+
+# Version 0.2.3.2
+* Add utility function for updating salts of cached functions.
+
 # Version 0.2.3.1
 * Switched to using dbtest::db_test_that from the latest version of dbtest.
 
