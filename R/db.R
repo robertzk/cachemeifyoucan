@@ -2,12 +2,16 @@
 #'
 #' @param prefix character. Prefix.
 #' @param salt list. Salt for the table name.
+#' @param register. logical. Register table metadata.
+#' @param dbconn SQLConnection. A database connection.
 #' @return the table name. This will just be \code{"prefix_"}
 #'   appended with the MD5 hash of the digest of the \code{salt}.
-table_name <- function(prefix, salt) {
+table_name <- function(prefix, salt, register. = FALSE, dbconn = NULL) {
   hash <- digest::digest(salt)
   tbl_name <- tolower(paste0(prefix, "_", hash))
-  ensure_cache_metadata_entry_exists(dbconn, tbl_name, hash, prefix, salt)
+  if(isTRUE(register.) && !is.null(dbconn)) {
+    ensure_cache_metadata_entry_exists(dbconn, tbl_name, hash, prefix, salt)
+  }
   tbl_name
 }
 
@@ -16,7 +20,7 @@ table_name <- function(prefix, salt) {
 ensure_cache_metadata_entry_exists <- function(dbconn, table_name, hash, prefix, salt) {
   cache_metadata_table <- "cache_metadata"
 
-  if (!DBI::dbExistsTable(dbconn, tbl_name)) {
+  if (!DBI::dbExistsTable(dbconn, cache_metadata_table)) {
     DBI::dbGetQuery(dbconn, paste0("CREATE TABLE ", cache_metadata_table,
       " (table_name varchar(255) UNIQUE NOT NULL, prefix varchar(255) NOT NULL, hash varchar(255) NOT NULL, salt_serialized varchar(255) NOT NULL)"))
   }
