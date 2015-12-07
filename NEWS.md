@@ -1,8 +1,11 @@
-# Version 0.2.3.2
+# Version 0.2.3.4
 * Add `last_cached_at` column in each shard.
 
+# Version 0.2.3.3
+* Update the update_cache_salt utility to be more proof.
+
 # Version 0.2.3.2
-* Add utility function for updating salts of cached functions.
+* Add a utility to update cache salts.
 
 # Version 0.2.3.1
 * Switched to using dbtest::db_test_that from the latest version of dbtest.
@@ -26,7 +29,7 @@
 # Version 0.2.1.2
 
 * Numeric values were being recorded using the `real` data type,
-  which only supports [6 digits](http://www.postgresql.org/docs/9.1/static/datatype-numeric.html) 
+  which only supports [6 digits](http://www.postgresql.org/docs/9.1/static/datatype-numeric.html)
   of precision. This was fixed by switching these column types to
   the `numeric` data type.
 
