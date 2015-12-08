@@ -15,30 +15,20 @@ META_COLS <- c("last_cached_at")
 #' @param dbconn SQLConnection. A database connection.
 #' @return the table name. This will just be \code{"prefix_"}
 #'   appended with the MD5 hash of the digest of the \code{salt}.
-table_name <- function(prefix, salt, register. = FALSE, dbconn = NULL) {
+table_name_ <- function(prefix, salt, register. = FALSE, dbconn = NULL) {
   hash <- digest::digest(salt)
   tbl_name <- tolower(paste0(prefix, "_", hash))
   if(isTRUE(register.) && !is.null(dbconn)) {
-    ensure_cache_metadata_entry_exists(dbconn, tbl_name, hash, prefix, salt)
+    track_cache_salt(dbconn, tbl_name, salt)
   }
   tbl_name
 }
 
+get_table_name <- memoise::memoise(table_name_)
 
-#' Create cache_meta table
-ensure_cache_metadata_entry_exists <- function(dbconn, table_name, hash, prefix, salt) {
-  cache_metadata_table <- "cache_metadata"
+#' TODO: Depricate in favor of get_table_name
+table_name <- get_table_name
 
-  if (!DBI::dbExistsTable(dbconn, cache_metadata_table)) {
-    DBI::dbGetQuery(dbconn, paste0("CREATE TABLE ", cache_metadata_table,
-      " (table_name varchar(255) UNIQUE NOT NULL, prefix varchar(255) NOT NULL, hash varchar(255) NOT NULL, salt_serialized varchar(255) NOT NULL)"))
-  }
-
-  if (0 == NROW(DBI::dbGetQuery(dbconn, paste0("SELECT * from ", cache_metadata_table, " WHERE table_name = '", table_name, "'")))) {
-    df <- data.frame(table_name = table_name, prefix = prefix, hash = hash, salt = serialize(salt))
-    dbWriteTableUntilSuccess(dbconn, cache_metadata_table, df, append = TRUE)
-  }
-}
 #' Fetch the map of column names.
 #'
 #' @param dbconn SQLConnection. A database connection.

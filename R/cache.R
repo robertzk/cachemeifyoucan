@@ -54,7 +54,7 @@
 #'   If safe_columns is a function, that function will be called.  The function
 #'   must return /code{TRUE} for this to work.  Also the function will be called
 #'   with no arguments.  This is mainly so you can write your own error message.
-#'   If safe_columns is /code{FALSE}, the additional columns will be added. 
+#'   If safe_columns is /code{FALSE}, the additional columns will be added.
 #'   Defaults \code{FALSE}.
 #' @return A function with a caching layer that does not call
 #'   \code{uncached_function} with already computed records, but retrieves
@@ -321,7 +321,7 @@ build_cached_function <- function(cached_function, safe_columns) {
 
     ## The database table to use is determined by the prefix and
     ## what values of the salted parameters were used at calltime.
-    tbl_name <- cachemeifyoucan:::table_name(`_prefix`, true_salt)
+    tbl_name <- cachemeifyoucan:::get_table_name(`_prefix`, true_salt, register. = TRUE, `_con`)
 
     ## Check database connection and reconnect if necessary
     if (is.null(`_con`) || !dbtest::is_db_connected(`_con`)) {
