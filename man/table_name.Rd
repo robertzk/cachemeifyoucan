@@ -2,20 +2,11 @@
 % Please edit documentation in R/db.R
 \name{table_name}
 \alias{table_name}
-\title{Database table name for a given prefix and salt.}
+\title{TODO: Depricate in favor of get_table_name}
 \usage{
-table_name(prefix, salt)
-}
-\arguments{
-\item{prefix}{character. Prefix.}
-
-\item{salt}{list. Salt for the table name.}
-}
-\value{
-the table name. This will just be \code{"prefix_"}
-  appended with the MD5 hash of the digest of the \code{salt}.
+table_name(...)
 }
 \description{
-Database table name for a given prefix and salt.
+TODO: Depricate in favor of get_table_name
 }
 
