@@ -1,3 +1,12 @@
+CLASS_MAP <- list(
+  integer = 'bigint', numeric = 'double precision', factor = 'text',
+  double = 'double precision', character = 'text', logical = 'text',
+  POSIXct = 'timestamp'
+)
+
+# Columns that store meta data for shards
+META_COLS <- c("last_cached_at")
+
 #' Database table name for a given prefix and salt.
 #'
 #' @param prefix character. Prefix.
@@ -43,7 +52,7 @@ column_names_map <- function(dbconn) {
 #' @param tbl_name character. The calculated table name for the function.
 #' @return one or many names of the shard tables.
 get_shards_for_table <- function(dbconn, tbl_name) {
-  if (!DBI::dbExistsTable(dbconn, 'table_shard_map')) create_shards_table(dbconn, 'table_shard_map')
+  if (!DBI::dbExistsTable(dbconn, "table_shard_map")) create_shards_table(dbconn, "table_shard_map")
   DBI::dbGetQuery(dbconn, paste0("SELECT shard_name FROM table_shard_map where table_name='", tbl_name, "'"))$shard_name
 }
 
@@ -69,7 +78,7 @@ create_shards_table <- function(dbconn, tblname) {
 #' @param raw_names character. A character vector of column names.
 #' @return the character vector of hashed names.
 get_hashed_names <- function(raw_names) {
-  paste0('c', vapply(raw_names, digest::digest, character(1)))
+  paste0("c", vapply(raw_names, digest::digest, character(1)))
 }
 
 #' Translate column names using the column_names table from MD5 to raw.
@@ -89,6 +98,7 @@ translate_column_names <- function(names, dbconn) {
 #' @param key. Identifier of database table.
 db2df <- function(df, dbconn, key) {
   df[[key]] <- NULL
+  for (meta in META_COLS) df[meta] <- NULL
   colnames(df) <- translate_column_names(colnames(df), dbconn)
   df
 }
@@ -104,7 +114,7 @@ add_index <- function(dbconn, tblname, key, idx_name = paste0("idx_", digest::di
     stop(sprintf("Invalid index name '%s': must begin with an alphabetic character",
                  idx_name))
   }
-  DBI::dbGetQuery(dbconn, paste0('CREATE INDEX ', idx_name, ' ON ', tblname, '(', key, ')'))
+  DBI::dbGetQuery(dbconn, paste0("CREATE INDEX ", idx_name, " ON ", tblname, "(", key, ")"))
   TRUE
 }
 
@@ -122,14 +132,13 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df, append = FALSE, row.na
   }
 
   repeat {
-    class_map <- list(integer = 'bigint', numeric = 'double precision', factor = 'text',
-                      double = 'double precision', character = 'text', logical = 'text')
-    field_types <- sapply(sapply(df, class), function(klass) class_map[[klass]])
+    field_classes <- vapply(df, function(col) class(col)[1L], character(1))
+    field_types <- vapply(field_classes, function(klass) CLASS_MAP[[klass]], character(1))
     DBI::dbWriteTable(dbconn, tblname, df, append = append,
                       row.names = row.names, field.types = field_types)
     #TODO(kirill): repeat maximum of N times
     if (!isTRUE(append)) {
-      num_rows <- DBI::dbGetQuery(dbconn, paste0('SELECT COUNT(*) FROM ', tblname))
+      num_rows <- DBI::dbGetQuery(dbconn, paste0("SELECT COUNT(*) FROM ", tblname))
       if (num_rows == nrow(df)) break
     } else break
   }
@@ -167,7 +176,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
   if (nrow(df) == 0) return(FALSE)
 
   if (missing(key)) {
-    id_cols <- grep('(_|^)id$', colnames(df), value = TRUE)
+    id_cols <- grep("(_|^)id$", colnames(df), value = TRUE)
     if (length(id_cols) == 0)
       stop("The data you are writing to the database must contain at least one ",
            "column ending with '_id'")
@@ -190,10 +199,10 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
     on.exit(options(old_options))
 
     ## Store the map of raw to MD5'ed column names in the column_names table.
-    if (!DBI::dbExistsTable(dbconn, 'column_names'))
-      dbWriteTableUntilSuccess(dbconn, 'column_names', column_map, append = FALSE)
+    if (!DBI::dbExistsTable(dbconn, "column_names"))
+      dbWriteTableUntilSuccess(dbconn, "column_names", column_map, append = FALSE)
     else {
-      raw_names <- DBI::dbGetQuery(dbconn, 'SELECT raw_name FROM column_names')[[1]]
+      raw_names <- DBI::dbGetQuery(dbconn, "SELECT raw_name FROM column_names")[[1]]
       column_map <- column_map[!is.element(column_map$raw_name, raw_names), ]
       if (NROW(column_map) > 0) {
         if (isTRUE(safe_columns)) {
@@ -204,7 +213,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
         } else if (is.function(safe_columns)) {
           safe_columns()
         } else { # Write additional columns
-          dbWriteTable(dbconn, 'column_names', column_map, append = TRUE, row.names = FALSE)
+          dbWriteTable(dbconn, "column_names", column_map, append = TRUE, row.names = FALSE)
         }
       }
     }
@@ -249,7 +258,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
     ## Unfortunately, `sort(1:11) == c(1, 10, 11, 2, 3, ...)` which is not what we want
     ## That's why we're using a slightly more ghetto solution
     suffix <- strsplit(shard_names[1], '_')[[1]][2]
-    lapply(paste0('shard', seq(length(shard_names)), '_', suffix), function (shard, last, key) {
+    lapply(paste0("shard", seq(length(shard_names)), "_", suffix), function (shard, last, key) {
       ## We need to create a map in the form of
       ## ```list(df = dataframe, shard_name = shard_names)```, where the dataframe is a subset
       ## of the original dataframe that contains less columns than
@@ -306,12 +315,15 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
     to_chars <- unname(vapply(df, function(x) is.factor(x) || is.ordered(x) || is.logical(x), logical(1)))
     df[to_chars] <- lapply(df[to_chars], as.character)
 
+    ## Add meta data
+    df$last_cached_at <- format(Sys.time(), tz = "UTC")
+
     ## Write out to postgres
     dbWriteTableUntilSuccess(dbconn, tblname, df, row.names = FALSE, append = append)
   }
 
   ## Use transactions!
-  DBI::dbGetQuery(dbconn, 'BEGIN')
+  DBI::dbGetQuery(dbconn, "BEGIN")
   tryCatch({
     ## Find the appropriate shards for this dataframe and tablename
     shard_names <- get_shard_names(df, tblname)
@@ -321,7 +333,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
     df_shard_map <- df2shards(dbconn, df, shard_names, key)
 
     ## Actually write the data to the database
-    lapply(df_shard_map, function(lst) {
+    actually_write_data <- function(lst) {
       tblname <- lst$shard_name
       df <- lst$df
       if (!DBI::dbExistsTable(dbconn, tblname)) {
@@ -334,6 +346,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
       one_row <- if (DBI::dbExistsTable(dbconn, tblname)) {
         DBI::dbGetQuery(dbconn, paste("SELECT * FROM ", tblname, " LIMIT 1"))
       } else NULL
+
       if (NROW(one_row) == 0) {
         ## The shard is empty! Delete it and write to it, finally
         ## Also, it's a great opportunity to enforce indexes on this table!
@@ -347,11 +360,9 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
       ## Columns that are missing in database need to be created
       new_names <- get_hashed_names(colnames(df))
       ## We also keep non-hashed versions of ID columns around for convenience.
-      new_names <- c(new_names, id_cols)
+      new_names <- c(new_names, id_cols, META_COLS)
       missing_cols <- !is.element(new_names, colnames(one_row))
       # TODO: (RK) Check reverse, that we're not missing any already-present columns
-      class_map <- list(integer = 'bigint', numeric = 'double precision', factor = 'text',
-                        double = 'double precision', character = 'text', logical = 'text')
       removes <- integer(0)
       for (index in which(missing_cols)) {
         col <- new_names[index]
@@ -361,7 +372,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
         # the tables.
         if (index > length(df)) index <- col
         sql <- paste0("ALTER TABLE ", tblname, " ADD COLUMN ",
-                         col, " ", class_map[[class(df[[index]])[1]]])
+                         col, " ", CLASS_MAP[[class(df[[index]])[1]]])
         suppressWarnings(DBI::dbGetQuery(dbconn, sql))
       }
 
@@ -374,26 +385,27 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
       }
 
       write_column_hashed_data(df, tblname, append = TRUE)
-      DBI::dbGetQuery(dbconn, 'COMMIT')
-    })
-    },
-    warning = function(w) {
-      message("An warning occured:", w)
+      DBI::dbGetQuery(dbconn, "COMMIT")
+    }
+
+    lapply(df_shard_map, actually_write_data)
+  },
+  warning = function(w) {
+    message("An warning occurred: ", w)
+    message("Rollback!")
+    DBI::dbRollback(dbconn)
+    DBI::dbGetQuery(dbconn, "COMMIT")
+  },
+  error = function(e) {
+    if (grepl("Safe Columns Error", conditionMessage(e))) {
+      stop(e)
+    } else {
+      message("An error occurred: ", e)
       message("Rollback!")
       DBI::dbRollback(dbconn)
-      DBI::dbGetQuery(dbconn, 'COMMIT')
-    },
-    error = function(e) {
-      if (grepl("Safe Columns Error", conditionMessage(e))) {
-        stop(e)
-      } else {
-        message("An error occured:", e)
-        message("Rollback!")
-        DBI::dbRollback(dbconn)
-        DBI::dbGetQuery(dbconn, 'COMMIT')
-      }
+      DBI::dbGetQuery(dbconn, "COMMIT")
     }
-  )
+  })
   invisible(TRUE)
 }
 
