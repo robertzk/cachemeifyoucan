@@ -1,3 +1,6 @@
+# Version 0.2.3.4
+* Add `last_cached_at` column in each shard.
+
 # Version 0.2.3.3
 * Update the update_cache_salt utility to be more proof.
 
