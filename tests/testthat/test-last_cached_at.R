@@ -29,8 +29,9 @@ describe("last_cached_at", {
     expect_true(identical(sample_rows$last_cached_at, new_sample_rows$last_cached_at))
 
     # Verify that the last_cached_at updates when `force. = TRUE` and time passes
-    Sys.sleep(1)
-    cached_fcn(key = ids, force. = TRUE)
+    testthatsomemore::pretend_now_is("1 minute from now", {
+      cached_fcn(key = ids, force. = TRUE)
+    })
     new_sample_rows <- DBI::dbGetQuery(test_con, paste0("SELECT * FROM ", shard))
     expect_equal(NROW(sample_rows), NROW(new_sample_rows))
     expect_false(identical(sample_rows$last_cached_at, new_sample_rows$last_cached_at))
