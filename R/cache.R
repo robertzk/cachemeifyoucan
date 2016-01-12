@@ -54,7 +54,7 @@
 #'   If safe_columns is a function, that function will be called.  The function
 #'   must return /code{TRUE} for this to work.  Also the function will be called
 #'   with no arguments.  This is mainly so you can write your own error message.
-#'   If safe_columns is /code{FALSE}, the additional columns will be added. 
+#'   If safe_columns is /code{FALSE}, the additional columns will be added.
 #'   Defaults \code{FALSE}.
 #' @return A function with a caching layer that does not call
 #'   \code{uncached_function} with already computed records, but retrieves
