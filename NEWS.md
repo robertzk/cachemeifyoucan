@@ -1,3 +1,6 @@
+# Version 0.2.3.5
+* Fix `safe_column` logic to do what it actually intended.
+
 # Version 0.2.3.4
 * Add `last_cached_at` column in each shard.
 
