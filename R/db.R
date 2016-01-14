@@ -90,8 +90,7 @@ db2df <- function(df, dbconn, key) {
 #' @param key. Identifier of database table.
 add_index <- function(dbconn, tblname, key, idx_name = paste0("idx_", digest::digest(tblname))) {
   if (!tolower(substring(idx_name, 1, 1)) %in% letters) {
-    stop(sprintf("Invalid index name '%s': must begin with an alphabetic character",
-                 idx_name))
+    stop(sprintf("Invalid index name '%s': must begin with an alphabetic character", idx_name))
   }
   DBI::dbGetQuery(dbconn, paste0("CREATE INDEX ", idx_name, " ON ", tblname, "(", key, ")"))
   TRUE
