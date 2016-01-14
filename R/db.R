@@ -379,7 +379,6 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
       }
 
       write_column_hashed_data(df, tblname, append = TRUE)
-      DBI::dbGetQuery(dbconn, "COMMIT")
     }
 
     lapply(df_shard_map, actually_write_data)
@@ -388,18 +387,16 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
     message("An warning occurred: ", w)
     message("Rollback!")
     DBI::dbRollback(dbconn)
-    DBI::dbGetQuery(dbconn, "COMMIT")
   },
   error = function(e) {
-    if (grepl("Safe Columns Error", conditionMessage(e))) {
-      stop(e)
-    } else {
-      message("An error occurred: ", e)
-      message("Rollback!")
-      DBI::dbRollback(dbconn)
-      DBI::dbGetQuery(dbconn, "COMMIT")
-    }
+    message("An error occurred: ", e)
+    message("Rollback!")
+    DBI::dbRollback(dbconn)
+  },
+  finally = {
+    DBI::dbGetQuery(dbconn, "COMMIT")
   })
+
   invisible(TRUE)
 }
 
