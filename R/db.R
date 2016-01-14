@@ -368,7 +368,6 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
         else col_type <- CLASS_MAP[[class(df[[index]])[1]]]
 
         sql <- paste("ALTER TABLE", tblname, "ADD COLUMN", col, col_type)
-
         suppressWarnings(DBI::dbGetQuery(dbconn, sql))
       }
 
