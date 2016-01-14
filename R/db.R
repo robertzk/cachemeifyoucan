@@ -358,7 +358,6 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
 
       for (index in which(missing_cols)) {
         col <- new_names[index]
-        col_name_raw <- new_names_raw[index]
         if (!all(vapply(col, nchar, integer(1)) > 0))
           stop("Failed to retrieve MD5 hashed column names in write_data_safely")
         # TODO: (RK) Figure out how to filter all NA columns without wrecking
