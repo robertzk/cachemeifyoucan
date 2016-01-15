@@ -392,6 +392,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
     message("An error occurred: ", e)
     message("Rollback!")
     DBI::dbRollback(dbconn)
+    stop(e)
   },
   finally = {
     DBI::dbGetQuery(dbconn, "COMMIT")
