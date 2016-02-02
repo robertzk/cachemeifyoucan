@@ -29,11 +29,57 @@ describe("last_cached_at", {
     expect_true(identical(sample_rows$last_cached_at, new_sample_rows$last_cached_at))
 
     # Verify that the last_cached_at updates when `force. = TRUE` and time passes
-    Sys.sleep(1)
-    cached_fcn(key = ids, force. = TRUE)
+    testthatsomemore::pretend_now_is("1 minute from now", {
+      cached_fcn(key = ids, force. = TRUE)
+    })
     new_sample_rows <- DBI::dbGetQuery(test_con, paste0("SELECT * FROM ", shard))
     expect_equal(NROW(sample_rows), NROW(new_sample_rows))
     expect_false(identical(sample_rows$last_cached_at, new_sample_rows$last_cached_at))
     expect_true(all(sample_rows$last_cached_at < new_sample_rows$last_cached_at))
+  })
+
+  describe("when last_cached_at does not yet exist in shard", {
+    db_test_that("it adds the last_cached_at column with new data", {
+      cached_fcn <- cache(batch_data, key = c(key = "id"), c("model_version", "type"), con = test_con, prefix = prefix)
+      cached_fcn(key = 5:1,  model_version, type)
+
+      shard_name <- cached_fcn(key = 5:1,  model_version, type, dry. = TRUE)$shard_names[[1]]
+
+      # Drop last_cached_at column to mimic tables in older versions of cmiyc
+      DBI::dbGetQuery(test_con, paste("alter table", shard_name, "drop column", "last_cached_at"))
+
+      df <- DBI::dbGetQuery(test_con, paste("select * from ", shard_name, "limit 1"))
+      expect_false("last_cached_at" %in% names(df))
+
+      # Cache new data
+      cached_fcn(key = 5:10,  model_version, type)
+
+      # Verify that the last_cached_at column exists
+      df <- DBI::dbGetQuery(test_con, paste("select * from ", shard_name, "limit 1"))
+      expect_true("last_cached_at" %in% names(df))
+    })
+
+    db_test_that("it adds the last_cached_at column with forced data", {
+      cached_fcn <- cache(batch_data, key = c(key = "id"), c("model_version", "type"), con = test_con, prefix = prefix)
+      cached_fcn(key = 5:1,  model_version, type)
+
+      shard_name <- cached_fcn(key = 5:1,  model_version, type, dry. = TRUE)$shard_names[[1]]
+
+      # Drop last_cached_at column to mimic tables in older versions of cmiyc
+      DBI::dbGetQuery(test_con, paste("alter table", shard_name, "drop column", "last_cached_at"))
+
+      df <- DBI::dbGetQuery(test_con, paste("select * from ", shard_name, "limit 1"))
+      expect_false("last_cached_at" %in% names(df))
+
+      # 1. Unforced cache retrival doesn't change anything
+      cached_fcn(key = 5:1,  model_version, type)
+      df <- DBI::dbGetQuery(test_con, paste("select * from ", shard_name, "limit 1"))
+      expect_false("last_cached_at" %in% names(df))
+
+      # 2. Force cache data adds last_cached_at column
+      cached_fcn(key = 5:1,  model_version, type, force. = TRUE)
+      df <- DBI::dbGetQuery(test_con, paste("select * from ", shard_name, "limit 1"))
+      expect_true("last_cached_at" %in% names(df))
+    })
   })
 })

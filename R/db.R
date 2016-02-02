@@ -6,6 +6,7 @@ CLASS_MAP <- list(
 
 # Columns that store meta data for shards
 META_COLS <- c("last_cached_at")
+META_COLS_TYPE <- list(last_cached_at = 'text')
 
 #' Database table name for a given prefix and salt.
 #'
@@ -101,8 +102,7 @@ db2df <- function(df, dbconn, key) {
 #' @param key. Identifier of database table.
 add_index <- function(dbconn, tblname, key, idx_name = paste0("idx_", digest::digest(tblname))) {
   if (!tolower(substring(idx_name, 1, 1)) %in% letters) {
-    stop(sprintf("Invalid index name '%s': must begin with an alphabetic character",
-                 idx_name))
+    stop(sprintf("Invalid index name '%s': must begin with an alphabetic character", idx_name))
   }
   DBI::dbGetQuery(dbconn, paste0("CREATE INDEX ", idx_name, " ON ", tblname, "(", key, ")"))
   TRUE
@@ -195,16 +195,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
       raw_names <- DBI::dbGetQuery(dbconn, "SELECT raw_name FROM column_names")[[1]]
       column_map <- column_map[!is.element(column_map$raw_name, raw_names), ]
       if (NROW(column_map) > 0) {
-        if (isTRUE(safe_columns)) {
-          stop("Safe Columns Error: Your function call is adding additional ",
-            "columns to a cache that already has pre-existing columns. This ",
-            "would suggest your cache is invalid and you should wipe the cache ",
-            "and start over.")
-        } else if (is.function(safe_columns)) {
-          safe_columns()
-        } else { # Write additional columns
-          dbWriteTable(dbconn, "column_names", column_map, append = TRUE, row.names = FALSE)
-        }
+        dbWriteTable(dbconn, "column_names", column_map, append = TRUE, row.names = FALSE)
       }
     }
     TRUE
@@ -326,10 +317,14 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
     actually_write_data <- function(lst) {
       tblname <- lst$shard_name
       df <- lst$df
-      if (!DBI::dbExistsTable(dbconn, tblname)) {
-        ## The shard doesn't exist yet. Let's create it and index it by key!
+      create_and_index_table <- function() {
         write_column_hashed_data(df, tblname, append = FALSE)
         add_index(dbconn, tblname, key, paste0("idx_", digest::digest(tblname)))
+      }
+
+      if (!DBI::dbExistsTable(dbconn, tblname)) {
+        ## The shard doesn't exist yet. Let's create it and index it by key!
+        create_and_index_table()
         return(invisible(TRUE))
       }
 
@@ -340,10 +335,8 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
       if (NROW(one_row) == 0) {
         ## The shard is empty! Delete it and write to it, finally
         ## Also, it's a great opportunity to enforce indexes on this table!
-        if (DBI::dbExistsTable(dbconn, tblname))
-          DBI::dbRemoveTable(dbconn, tblname)
-        write_column_hashed_data(df, tblname, append = FALSE)
-        add_index(dbconn, tblname, key, paste0("i", digest::digest(tblname)))
+        if (DBI::dbExistsTable(dbconn, tblname)) DBI::dbRemoveTable(dbconn, tblname)
+        create_and_index_table()
         return(invisible(TRUE))
       }
 
@@ -351,9 +344,29 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
       new_names <- get_hashed_names(colnames(df))
       ## We also keep non-hashed versions of ID columns around for convenience.
       new_names <- c(new_names, id_cols, META_COLS)
-      missing_cols <- !is.element(new_names, colnames(one_row))
+      new_names_raw <- c(colnames(df), id_cols, META_COLS)
+      missing_cols <- setNames(!is.element(new_names, colnames(one_row)), new_names_raw)
+
+      missing_user_cols <- missing_cols[setdiff(new_names_raw, META_COLS)]
+
+      if (any(missing_user_cols)) {
+        if (isTRUE(safe_columns)) {
+          stop("Safe Columns Error: Your function call is adding additional ",
+            "columns to a cache that already has pre-existing columns. This ",
+            "would suggest your cache is invalid and you should wipe the cache ",
+            "and start over.")
+        } else if (is.function(safe_columns)) {
+          safe_columns(missing_user_cols)
+        }
+      }
+
       # TODO: (RK) Check reverse, that we're not missing any already-present columns
       removes <- integer(0)
+
+      if (any(missing_cols) && isTRUE(getOption("cachemeifyoucan.debug"))) {
+        message("Add columns to", tblname, ":", paste(names(which(missing_cols)), collapse = ", "))
+      }
+
       for (index in which(missing_cols)) {
         col <- new_names[index]
         if (!all(vapply(col, nchar, integer(1)) > 0))
@@ -361,8 +374,11 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
         # TODO: (RK) Figure out how to filter all NA columns without wrecking
         # the tables.
         if (index > length(df)) index <- col
-        sql <- paste0("ALTER TABLE ", tblname, " ADD COLUMN ",
-                         col, " ", CLASS_MAP[[class(df[[index]])[1]]])
+
+        if (col %in% META_COLS) col_type <- META_COLS_TYPE[[col]]
+        else col_type <- CLASS_MAP[[class(df[[index]])[1]]]
+
+        sql <- paste("ALTER TABLE", tblname, "ADD COLUMN", col, col_type)
         suppressWarnings(DBI::dbGetQuery(dbconn, sql))
       }
 
@@ -375,7 +391,6 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
       }
 
       write_column_hashed_data(df, tblname, append = TRUE)
-      DBI::dbGetQuery(dbconn, "COMMIT")
     }
 
     lapply(df_shard_map, actually_write_data)
@@ -384,18 +399,17 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
     message("An warning occurred: ", w)
     message("Rollback!")
     DBI::dbRollback(dbconn)
-    DBI::dbGetQuery(dbconn, "COMMIT")
   },
   error = function(e) {
-    if (grepl("Safe Columns Error", conditionMessage(e))) {
-      stop(e)
-    } else {
-      message("An error occurred: ", e)
-      message("Rollback!")
-      DBI::dbRollback(dbconn)
-      DBI::dbGetQuery(dbconn, "COMMIT")
-    }
+    message("An error occurred: ", e)
+    message("Rollback!")
+    DBI::dbRollback(dbconn)
+    stop(e)
+  },
+  finally = {
+    DBI::dbGetQuery(dbconn, "COMMIT")
   })
+
   invisible(TRUE)
 }
 
