@@ -27,7 +27,7 @@ table_name_ <- function(prefix, salt, register. = FALSE, dbconn = NULL) {
 
 get_table_name <- memoise::memoise(table_name_)
 
-#' TODO: Depricate in favor of get_table_name
+# TODO: Depricate in favor of get_table_name
 table_name <- get_table_name
 
 #' Fetch the map of column names.
