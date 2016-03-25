@@ -358,8 +358,6 @@ build_cached_function <- function(cached_function) {
   })
 
   class(cached_function) <- append("cached_function", class(cached_function))
-  environment(cached_function)$safe_columns <- safe_columns
-  environment(cached_function)$blacklist <- blacklist
   cached_function
 }
 
