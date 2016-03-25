@@ -1,6 +1,21 @@
 # Version 0.2.4
 * Implements a blacklist of values that are to be returned but not cached.
 
+# Version 0.2.3.6
+* Fix `last_cached_at` bug for existing shards.
+
+# Version 0.2.3.5
+* Fix `safe_column` logic to do what it actually intended.
+
+# Version 0.2.3.4
+* Add `last_cached_at` column in each shard.
+
+# Version 0.2.3.3
+* Update the update_cache_salt utility to be more proof.
+
+# Version 0.2.3.2
+* Add a utility to update cache salts.
+
 # Version 0.2.3.1
 * Switched to using dbtest::db_test_that from the latest version of dbtest.
 
@@ -23,7 +38,7 @@
 # Version 0.2.1.2
 
 * Numeric values were being recorded using the `real` data type,
-  which only supports [6 digits](http://www.postgresql.org/docs/9.1/static/datatype-numeric.html) 
+  which only supports [6 digits](http://www.postgresql.org/docs/9.1/static/datatype-numeric.html)
   of precision. This was fixed by switching these column types to
   the `numeric` data type.
 

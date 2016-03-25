@@ -7,7 +7,8 @@
 \usage{
 db2df(df, dbconn, key)
 
-add_index(dbconn, tblname, key, idx_name)
+add_index(dbconn, tblname, key, idx_name = paste0("idx_",
+  digest::digest(tblname)))
 }
 \arguments{
 \item{dbconn}{SQLConnection. A database connection.}

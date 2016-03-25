@@ -29,7 +29,7 @@ describe("cache function", {
      # And now everything is so cached
      takes_less_than(1)(tmp <- cached_fcn(1:20))
    })
-  
+
    db_test_that('retrieving partial result from cache works', {
      expect_cached({
        df_ref <- batch_data(1:5)
@@ -37,7 +37,7 @@ describe("cache function", {
        expect_almost_equal(df_ref[1, ], cached_fcn(key = 1, model_version, type))
      })
    })
-  
+
    db_test_that('attempting to populate a new row with a different value fails due to cache hit', {
      expect_cached({
        df_ref <- batch_data(1:5, switch = TRUE, flip = 4:5)
@@ -46,7 +46,7 @@ describe("cache function", {
        cached_df <- cached_fcn(1:5, switch = TRUE, flip = 4:5)
      })
    })
-  
+
    db_test_that('appending partially overlapped table adds to cache', {
      expect_cached({
        df_ref <- batch_data(1:5, model_version, type, switch = TRUE, flip = 1)
@@ -55,7 +55,7 @@ describe("cache function", {
        cached_fcn(key = 5:6, model_version, type)
      })
    })
-  
+
    db_test_that('re-arranging in the correct order happens when using the cache', {
      expect_cached({
        df_ref <- batch_data(1:5, model_version, type)
@@ -64,7 +64,7 @@ describe("cache function", {
                     without_rownames(cached_fcn(key = 5:1, model_version, type)))
      }, no_check = TRUE)
    })
-  
+
    db_test_that('re-arranging in the correct order happens when using the cache with partially new results', {
      expect_cached({
        df_ref <- batch_data(1:5, model_version, type)
