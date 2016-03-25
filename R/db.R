@@ -163,9 +163,9 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns, blacklist)
     on.exit(options(old_options))
 
     ## Store the map of raw to MD5'ed column names in the column_names table.
-    if (!DBI::dbExistsTable(dbconn, 'column_names'))
+    if (!DBI::dbExistsTable(dbconn, 'column_names')) {
       dbWriteTableUntilSuccess(dbconn, 'column_names', column_map, append = FALSE)
-    else {
+    } else {
       raw_names <- DBI::dbGetQuery(dbconn, 'SELECT raw_name FROM column_names')[[1]]
       column_map <- column_map[!is.element(column_map$raw_name, raw_names), ]
       if (NROW(column_map) > 0) {
