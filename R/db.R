@@ -298,11 +298,14 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns, blacklist)
 
   write_column_hashed_data <- function(df, tblname, append = TRUE) {
     ## Don't cache anything that is in the blacklist.
-    if (!is.null(blacklist)) {
+    if (length(blacklist) > 0L) {
       if (any(is.na(blacklist))) {
-        df <- df[apply(df, 1, function(x) all(!(is.na(x)))),]
+        df <- df[apply(Negate(is.na(df)), 1, all), ]
+        blacklist <- blacklist[!is.na(blacklist)]
       }
-      df <- df[apply(df, 1, function(x) all(!(x %in% blacklist))),]
+      if (length(blacklist) > 0L) {
+        df <- df[apply(df, 1, function(x) all(!(x %in% blacklist))),]
+      }
     }
 
     ## Create the mapping between original column names and their MD5 companions
