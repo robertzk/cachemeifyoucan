@@ -352,9 +352,11 @@ build_cached_function <- function(cached_function) {
     keys <- fcn_call$call[[fcn_call$key]]
 
     ## Log cache metadata if in debug mode
-    status <- cachemeifyoucan:::debug_info(fcn_call, keys)
-
-    if (!is_dry) cachemeifyoucan:::execute(fcn_call, keys) else status
+    if (is_dry) {
+      cachemeifyoucan:::debug_info(fcn_call, keys)
+    } else {
+      cachemeifyoucan:::execute(fcn_call, keys)
+    }
   })
 
   class(cached_function) <- append("cached_function", class(cached_function))
