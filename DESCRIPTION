@@ -17,6 +17,7 @@ Imports:
     digest,
     DBI,
     plyr,
+    dplyr,
     dbtest (>= 0.0.2.9001)
 Suggests:
     knitr,
