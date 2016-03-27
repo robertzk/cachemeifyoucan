@@ -147,6 +147,9 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df, append = FALSE, row.na
 #' @param tblname character. The table name to write the data into.
 #' @param df data.frame. The data to write.
 #' @param key character. The identifier column name.
+#' @param safe_columns logical. Whether an error should be thrown if the columns returned
+#'   are different than what is in the column cache.
+#' @param blacklist list. A list of values to not cache.
 #' @inheritParams cache
 write_data_safely <- function(dbconn, tblname, df, key, safe_columns, blacklist) {
   if (is.null(df)) return(FALSE)

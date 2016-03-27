@@ -15,18 +15,10 @@ write_data_safely(dbconn, tblname, df, key, safe_columns, blacklist)
 
 \item{key}{character. The identifier column name.}
 
-\item{safe_columns}{logical or function.  If safe_columns = \code{TRUE}
-and a caching call would add additional columns for an already existing
-cache with already existing columns, the function will instead crash.
-If safe_columns is a function, that function will be called.  The function
-must return /code{TRUE} for this to work.  Also the function will be called
-with no arguments.  This is mainly so you can write your own error message.
-If safe_columns is /code{FALSE}, the additional columns will be added.
-Defaults \code{FALSE}.}
+\item{safe_columns}{logical. Whether an error should be thrown if the columns returned
+are different than what is in the column cache.}
 
-\item{blacklist}{list. Any elements in this list will be blocked from caching.
-This is useful for implementing a conditional cache or adding more safety around
-your caching layer.  Defaults to \code{NULL}, no blacklist.}
+\item{blacklist}{list. A list of values to not cache.}
 }
 \description{
 Write data.frames to DB addressing pitfalls
