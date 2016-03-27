@@ -274,14 +274,16 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns, blacklist)
   write_column_hashed_data <- function(df, tblname, append = TRUE) {
     ## Don't cache anything that is in the blacklist.
     if (length(blacklist) > 0L) {
+      df_without_id <- df[-which(names(df) == key)]  # Don't blacklist on id.
       if (any(is.na(blacklist))) {
-        df <- df[apply(Negate(is.na(df)), 1, all), ]
+        df <- df[apply(!is.na(df_without_id), 1, all),]
         blacklist <- blacklist[!is.na(blacklist)]
       }
       if (length(blacklist) > 0L) {
-        df <- df[apply(df, 1, function(x) all(!(x %in% blacklist))),]
+        df <- df[apply(df_without_id, 1, function(x) all(!(x %in% blacklist))),]
       }
     }
+    if (NROW(df) == 0 || NCOL(df) == 0) { return(NULL) }
 
     ## Create the mapping between original column names and their MD5 companions
     write_column_names_map(colnames(df))
@@ -317,8 +319,11 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns, blacklist)
       tblname <- lst$shard_name
       df <- lst$df
       create_and_index_table <- function() {
-        write_column_hashed_data(df, tblname, append = FALSE)
-        add_index(dbconn, tblname, key, paste0("idx_", digest::digest(tblname)))
+        if (is.null(write_column_hashed_data(df, tblname, append = FALSE))) {
+          return(invisible(TRUE))  # Nothing was cached
+        } else {
+          add_index(dbconn, tblname, key, paste0("idx_", digest::digest(tblname)))
+        }
       }
 
       if (!DBI::dbExistsTable(dbconn, tblname)) {
