@@ -20,7 +20,7 @@ table_name_ <- function(prefix, salt, register. = FALSE, dbconn = NULL) {
   hash <- digest::digest(salt)
   tbl_name <- tolower(paste0(prefix, "_", hash))
   if(isTRUE(register.) && !is.null(dbconn)) {
-    track_cache_salt(dbconn, tbl_name, salt)
+    track_cache_salt_memoised(dbconn, tbl_name, salt)
   }
   tbl_name
 }

@@ -15,14 +15,14 @@ track_cache_salt <- function(dbconn, table_name, salt) {
   salt_obj <- serialize_to_string(salt)
 
   if (NROW(df) != 1) {
-    if (!identical(salt_obj, df$salt_obj)) { stop("Cache salt values don't match what was registered.") }
+    if (!identical(salt_obj, df$salt_obj)) { browser(); stop("Cache salt values don't match what was registered.") }
   }
 
   df <- data.frame(table_name = table_name, salt_obj = salt_obj, stringsAsFactors = FALSE)
   dbWriteTableUntilSuccess(dbconn, CACHE_METADATA_TABLE, df, append = TRUE)
 }
 
-track_cache_salt_memoised <- memoise::memoise(track_cache_metadata)
+track_cache_salt_memoised <- memoise::memoise(track_cache_salt)
 
 
 #' Get the salt used for a cache table

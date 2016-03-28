@@ -6,7 +6,7 @@ library(testthatsomemore)
 
 describe("track_cache_salt", {
 
-  db_test_that("cache_metadata table existence", {
+  db_test_that("cache_metadata table exists", {
     # Verify that the cache_metadata is empty to start
     expect_false(DBI::dbExistsTable(test_con, CACHE_METADATA_TABLE))
 
@@ -70,5 +70,12 @@ describe("track_cache_salt", {
     # Verify that the salt is saved accurately
     salt <- get_cache_table_salt(test_con, ref_table_name)[[1]]
     expect_identical(ref_salt, salt)
+  })
+})
+
+
+describe("track_cache_salt_memoised", {
+  test_that("it exists", {
+    is.function(track_cache_salt_memoised)
   })
 })
