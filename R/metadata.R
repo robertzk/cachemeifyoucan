@@ -14,8 +14,10 @@ track_cache_salt <- function(dbconn, table_name, salt) {
 
   salt_obj <- serialize_to_string(salt)
 
-  if (NROW(df) != 1) {
-    if (!identical(salt_obj, df$salt_obj)) { browser(); stop("Cache salt values don't match what was registered.") }
+  if (NROW(df) > 1) { warning(paste("There are multiple metadata entries for", table_name)) }
+
+  if (NROW(df) == 1) {
+    if (!identical(salt_obj, df$salt_obj)) { stop("Cache salt values don't match what was registered in the table meta data.") }
   }
 
   df <- data.frame(table_name = table_name, salt_obj = salt_obj, stringsAsFactors = FALSE)
@@ -33,7 +35,7 @@ track_cache_salt_memoised <- memoise::memoise(track_cache_salt)
 get_cache_table_salt <- function(dbconn, table_names) {
   df <- get_cache_meta_data(dbconn, table_names)
 
-  if (NROW(df) > 0) {
+  if (NROW(df) == 0) {
     warning("No matching entry found.")
     NULL
   } else {

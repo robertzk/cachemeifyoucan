@@ -11,9 +11,10 @@ describe("track_cache_salt", {
     expect_false(DBI::dbExistsTable(test_con, CACHE_METADATA_TABLE))
 
     # Verify that an error is thrown if cache_metadata doesn't exist.
-    expect_error(
-      salts <- get_cache_table_salt(test_con, ref_table_name),
-      "No cache_metadata table found."
+    ref_table_name <- "test_data_xyz"
+    expect_warning(
+      get_cache_table_salt(test_con, ref_table_name),
+      "No matching entry found."
     )
   })
 
@@ -55,8 +56,9 @@ describe("track_cache_salt", {
     ref_combined_salts = setNames(list(ref_salt, new_ref_salt), ref_table_names)
     expect_identical(ref_combined_salts, salts)
   })
+})
 
-
+describe("cache_fn", {
   db_test_that("calling the cached_fn creates a metadata entry", {
     ids <- 1:5
     test_version <- "test"
