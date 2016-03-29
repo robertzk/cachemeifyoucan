@@ -14,14 +14,17 @@ track_cache_salt <- function(dbconn, table_name, salt) {
 
   salt_obj <- serialize_to_string(salt)
 
-  if (NROW(df) > 1) { warning(paste("There are multiple metadata entries for", table_name)) }
-
-  if (NROW(df) == 1) {
-    if (!identical(salt_obj, df$salt_obj)) { stop("Cache salt values don't match what was registered in the table meta data.") }
+  if (NROW(df) == 0) {
+    df <- data.frame(table_name = table_name, salt_obj = salt_obj, stringsAsFactors = FALSE)
+    dbWriteTableUntilSuccess(dbconn, CACHE_METADATA_TABLE, df, append = TRUE)
+    TRUE
+  } else if (NROW(df) == 1) {
+    if (identical(salt_obj, df$salt_obj)) { TRUE }
+    else { stop("Cache salt values don't match what was registered in the table meta data.") }
+  } else if (NROW(df) > 1) {
+    warning(paste("There are multiple metadata entries for", table_name))
+    FALSE
   }
-
-  df <- data.frame(table_name = table_name, salt_obj = salt_obj, stringsAsFactors = FALSE)
-  dbWriteTableUntilSuccess(dbconn, CACHE_METADATA_TABLE, df, append = TRUE)
 }
 
 track_cache_salt_memoised <- memoise::memoise(track_cache_salt)
