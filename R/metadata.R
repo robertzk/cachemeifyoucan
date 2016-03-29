@@ -1,22 +1,22 @@
 
 
-track_cache_salt <- function(dbconn, table_name, salt) {
+a <- function(dbconn, table_name, salt) {
 }
 
 #track_cache_salt_memoised <- memoise::memoise(track_cache_salt)
 
 
-get_cache_table_salt <- function(dbconn, table_names) {
+b <- function(dbconn, table_names) {
 }
 
-get_cache_meta_data <- function(dbconn, table_names) {
+c <- function(dbconn, table_names) {
 }
 
-serialize_to_string <- function(obj) {
+d <- function(obj) {
 }
 
-unserialize_from_string <- function(obj_str) {
+e <- function(obj_str) {
 }
 
-ensure_cache_metadata_table_exists <- function(dbconn) {
+f <- function(dbconn) {
 }
