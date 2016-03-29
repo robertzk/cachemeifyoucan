@@ -26,4 +26,4 @@ Suggests:
 License: MIT
 LazyData: true
 Roxygen: list(wrap = FALSE)
-RoxygenNote: 5.0.0
+RoxygenNote: 5.0.1.9000
