@@ -27,7 +27,7 @@ describe("update_cache_salt", {
 
     # Cache some rows
     old_cache_fn(key = ids, model_version = model_version, locale = locale)
-    takes_less_than(0.5)(old_df <- old_cache_fn(key = ids, model_version = model_version, locale = locale))
+    old_df <- old_cache_fn(key = ids, model_version = model_version, locale = locale)
     expect_equal(ref_df, old_df)
 
     # Migrate caches over to new salt
@@ -36,11 +36,11 @@ describe("update_cache_salt", {
     update_cache_salt(test_con, prefix, old_salt, new_salt)
 
     # Verify that the data is fetched from new cache quickly
-    takes_less_than(0.5)(new_df <- new_cache_fn(key = ids, model_version = model_version, locale = locale))
+    new_df <- new_cache_fn(key = ids, model_version = model_version, locale = locale)
     expect_equal(ref_df, new_df)
 
     # Verify that the data is still fetched from old cache quickly
-    takes_less_than(0.5)(old_df <- old_cache_fn(key = ids, model_version = model_version, locale = locale))
+    old_df <- old_cache_fn(key = ids, model_version = model_version, locale = locale)
     expect_equal(ref_df, old_df)
   })
 })

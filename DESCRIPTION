@@ -1,7 +1,7 @@
 Package: cachemeifyoucan
 Type: Package
 Title: Cache Me If You Can
-Version: 0.2.3.6
+Version: 0.2.4
 Description: One of the most frustrating parts about being a data scientist
     is waiting for data or other large downloads. This package offers a caching
     layer for arbitrary functions that relies on a PostgreSQL backend.
@@ -17,6 +17,7 @@ Imports:
     digest,
     DBI,
     plyr,
+    dplyr,
     dbtest (>= 0.0.2.9001)
 Suggests:
     knitr,
@@ -25,3 +26,4 @@ Suggests:
 License: MIT
 LazyData: true
 Roxygen: list(wrap = FALSE)
+RoxygenNote: 5.0.1.9000

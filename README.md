@@ -277,6 +277,16 @@ cache(..., safe_columns = function() { browser(); TRUE })
 ```
 
 
+## Blacklist and Conditional Caching
+
+You can specify a blacklist of values you don't want to cache.  If any value to be cached matches the blacklist, it will be returned but not cached.
+
+For example, if you don't want to cache any `NA` values, you can specify `blacklist = list(NA)`.
+
+For another example, let's assume you're trying to cache whether a customer has bought a product from you in the past.  You always want to cache `TRUE` forever, because once a customer purchases they will always forever be a repeat purchaser.  But you never want to cache `FALSE` because at any time they could buy a product and become a repeat purchaser.  We can solve this via `blacklist = list("FALSE")` (note that `FALSE` is a character, this is because CMIYC doesn't support logicals yet).  This will prevent `FALSE` from getting cached while caching `TRUE`.
+
+
+
 # Testing
 
 To run tests locally, you'll need the following:
