@@ -1,3 +1,7 @@
+# Version 0.2.4
+* Implements a blacklist of values that are to be returned but not cached.
+* Clean up how `safe_columns` is passed along in the function environment.
+
 # Version 0.2.3.6
 * Fix `last_cached_at` bug for existing shards.
 

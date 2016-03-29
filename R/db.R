@@ -159,8 +159,11 @@ dbWriteTableUntilSuccess <- function(dbconn, tblname, df, append = FALSE, row.na
 #' @param tblname character. The table name to write the data into.
 #' @param df data.frame. The data to write.
 #' @param key character. The identifier column name.
+#' @param safe_columns logical. Whether an error should be thrown if the columns returned
+#'   are different than what is in the column cache.
+#' @param blacklist list. A list of values to not cache.
 #' @inheritParams cache
-write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
+write_data_safely <- function(dbconn, tblname, df, key, safe_columns, blacklist) {
   if (is.null(df)) return(FALSE)
   if (!is.data.frame(df)) return(FALSE)
   if (nrow(df) == 0) return(FALSE)
@@ -189,9 +192,9 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
     on.exit(options(old_options))
 
     ## Store the map of raw to MD5'ed column names in the column_names table.
-    if (!DBI::dbExistsTable(dbconn, "column_names"))
+    if (!DBI::dbExistsTable(dbconn, "column_names")) {
       dbWriteTableUntilSuccess(dbconn, "column_names", column_map, append = FALSE)
-    else {
+    } else {
       raw_names <- DBI::dbGetQuery(dbconn, "SELECT raw_name FROM column_names")[[1]]
       column_map <- column_map[!is.element(column_map$raw_name, raw_names), ]
       if (NROW(column_map) > 0) {
@@ -284,6 +287,19 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
   }
 
   write_column_hashed_data <- function(df, tblname, append = TRUE) {
+    ## Don't cache anything that is in the blacklist.
+    if (length(blacklist) > 0L) {
+      df_without_id <- df[-which(names(df) == key)]  # Don't blacklist on id.
+      if (any(is.na(blacklist))) {
+        df <- df[apply(!is.na(df_without_id), 1, all),]
+        blacklist <- blacklist[!is.na(blacklist)]
+      }
+      if (length(blacklist) > 0L) {
+        df <- df[apply(df_without_id, 1, function(x) all(!(x %in% blacklist))),]
+      }
+    }
+    if (NROW(df) == 0 || NCOL(df) == 0) { return(NULL) }
+
     ## Create the mapping between original column names and their MD5 companions
     write_column_names_map(colnames(df))
 
@@ -318,8 +334,11 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns) {
       tblname <- lst$shard_name
       df <- lst$df
       create_and_index_table <- function() {
-        write_column_hashed_data(df, tblname, append = FALSE)
-        add_index(dbconn, tblname, key, paste0("idx_", digest::digest(tblname)))
+        if (is.null(write_column_hashed_data(df, tblname, append = FALSE))) {
+          return(invisible(TRUE))  # Nothing was cached
+        } else {
+          add_index(dbconn, tblname, key, paste0("idx_", digest::digest(tblname)))
+        }
       }
 
       if (!DBI::dbExistsTable(dbconn, tblname)) {

@@ -56,6 +56,9 @@
 #'   with no arguments.  This is mainly so you can write your own error message.
 #'   If safe_columns is /code{FALSE}, the additional columns will be added.
 #'   Defaults \code{FALSE}.
+#' @param blacklist list. Any elements in this list will be blocked from caching.
+#'   This is useful for implementing a conditional cache or adding more safety around
+#'   your caching layer.  Defaults to \code{NULL}, no blacklist.
 #' @return A function with a caching layer that does not call
 #'   \code{uncached_function} with already computed records, but retrieves
 #'   those results from an underlying database table.
@@ -232,12 +235,13 @@
 #'
 #' }
 cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_function),
-                  env = "cache", batch_size = 100, safe_columns = FALSE) {
+                  env = "cache", batch_size = 100, safe_columns = FALSE, blacklist = NULL) {
   stopifnot(is.function(uncached_function),
     is.character(prefix), length(prefix) == 1,
     is.character(key), length(key) > 0,
     is.atomic(salt) || is.list(salt), is.numeric(batch_size),
-    (is.logical(safe_columns) || is.function(safe_columns)))
+    (is.logical(safe_columns) || is.function(safe_columns)),
+    (is.list(blacklist) || is.null(blacklist)))
 
   cached_function <- new("function")
 
@@ -264,11 +268,13 @@ cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_f
       , `_uncached_function` = uncached_function, `_con` = NULL
       , `_con_build` = c(list(con), if (!missing(env)) list(env))
       , `_env` = if (!missing(env)) env
+      , `_blacklist` = blacklist
+      , `_safe_columns` = safe_columns
       , `_batch_size` = batch_size
       ),
       parent = environment(uncached_function))
 
-  build_cached_function(cached_function, safe_columns)
+  build_cached_function(cached_function)
 }
 
 #' Fetch the uncached function
@@ -286,7 +292,7 @@ uncached <- function(fn) {
   }
 }
 
-build_cached_function <- function(cached_function, safe_columns) {
+build_cached_function <- function(cached_function) {
   ## All cached functions will have the same body.
   body(cached_function) <- quote({
     ## If a user calls the uncached_function with, e.g.,
@@ -339,24 +345,26 @@ build_cached_function <- function(cached_function, safe_columns) {
     } else force. <- FALSE
 
     fcn_call <- cachemeifyoucan:::cached_function_call(`_uncached_function`, call,
-        parent.frame(), tbl_name, `_key`, `_con`, force., `_batch_size`)
+        parent.frame(), tbl_name, `_key`, `_con`, force., `_batch_size`,
+        `_safe_columns`, `_blacklist`)
 
     ## Grab the all keys
     keys <- fcn_call$call[[fcn_call$key]]
 
     ## Log cache metadata if in debug mode
-    status <- cachemeifyoucan:::debug_info(fcn_call, keys)
-
-    if (!is_dry) cachemeifyoucan:::execute(fcn_call, keys, safe_columns) else status
+    if (is_dry) {
+      cachemeifyoucan:::debug_info(fcn_call, keys)
+    } else {
+      cachemeifyoucan:::execute(fcn_call, keys)
+    }
   })
 
   class(cached_function) <- append("cached_function", class(cached_function))
-  environment(cached_function)$safe_columns <- safe_columns
   cached_function
 }
 
 ## A helper function to execute a cached function call.
-execute <- function(fcn_call, keys, safe_columns) {
+execute <- function(fcn_call, keys) {
 
   ## If some keys were populated by another process, we will keep track of those
   ## so that we do not have to duplicate the caching effort.
@@ -376,7 +384,7 @@ execute <- function(fcn_call, keys, safe_columns) {
     if (!length(keys)) return(data.frame())
     uncached_data <- compute_uncached_data(fcn_call, keys)
     write_data_safely(fcn_call$con, fcn_call$table,
-      uncached_data, fcn_call$output_key, safe_columns)
+      uncached_data, fcn_call$output_key, fcn_call$safe_columns, fcn_call$blacklist)
     uncached_data
   }
 
@@ -409,7 +417,8 @@ execute <- function(fcn_call, keys, safe_columns) {
   ## Actually compute for the uncached keys
   cached_data <- compute_cached_data(fcn_call, cached_keys)
 
-  data <- unique(plyr::rbind.fill(uncached_data, cached_data))
+  data <- dplyr::bind_rows(uncached_data, cached_data)
+  class(data) <- "data.frame"  # un-dplyr
   if (fcn_call$force) {
     ## restore column names using existing cache columns
     old_columns <- get_column_names_from_table(fcn_call)
@@ -483,7 +492,8 @@ compute_cached_data <- function(fcn_call, cached_keys) {
   error_fn(data_injector(fcn_call, cached_keys, TRUE))
 }
 
-cached_function_call <- function(fn, call, context, table, key, con, force, batch_size) {
+cached_function_call <- function(fn, call, context, table, key, con, force, batch_size,
+                                 safe_columns, blacklist) {
   # TODO: (RK) Handle keys of length more than 1
   if (is.null(names(key))) {
     output_key <- key
@@ -492,7 +502,8 @@ cached_function_call <- function(fn, call, context, table, key, con, force, batc
     key <- names(key)
   }
   structure(list(fn = fn, call = call, context = context, table = table, key = key,
-                 output_key = output_key, con = con, force = force, batch_size = batch_size),
+                 output_key = output_key, con = con, force = force, batch_size = batch_size,
+                 safe_columns = safe_columns, blacklist = blacklist),
     class = 'cached_function_call')
 }
 
