@@ -1,5 +1,4 @@
 
-CACHE_METADATA_TABLE <- "cache_metadata"
 
 track_cache_salt <- function(dbconn, table_name, salt) {
 }
