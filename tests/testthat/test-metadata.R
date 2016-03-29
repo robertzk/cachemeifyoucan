@@ -72,6 +72,13 @@ describe("cache_fn", {
     # Verify that the salt is saved accurately
     salt <- get_cache_table_salt(test_con, ref_table_name)[[1]]
     expect_identical(ref_salt, salt)
+
+    # Verity that the salt isn't saved multiple times when not memoised
+    memoise::forget(get_table_name)
+    memoise::forget(track_cache_salt_memoised)
+    cache_fn(key = ids, model_version = test_version)
+    salt <- get_cache_table_salt(test_con, ref_table_name)[[1]]
+    expect_identical(ref_salt, salt)
   })
 })
 
