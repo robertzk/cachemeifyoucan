@@ -25,6 +25,11 @@ table_name_ <- function(prefix, salt, register. = FALSE, dbconn = NULL) {
   tbl_name
 }
 
+get_table_name <- memoise::memoise(table_name_)
+
+# TODO: Depricate in favor of get_table_name
+table_name <- get_table_name
+
 #' Fetch the map of column names.
 #'
 #' @param dbconn SQLConnection. A database connection.
