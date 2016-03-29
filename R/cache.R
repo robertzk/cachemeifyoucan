@@ -327,7 +327,7 @@ build_cached_function <- function(cached_function) {
 
     ## The database table to use is determined by the prefix and
     ## what values of the salted parameters were used at calltime.
-    tbl_name <- cachemeifyoucan:::get_table_name(`_prefix`, true_salt, register. = TRUE, `_con`)
+    tbl_name <- cachemeifyoucan:::table_name(`_prefix`, true_salt, register. = TRUE, `_con`)
 
     ## Check database connection and reconnect if necessary
     if (is.null(`_con`) || !dbtest::is_db_connected(`_con`)) {
