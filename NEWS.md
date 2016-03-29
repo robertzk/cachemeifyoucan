@@ -1,3 +1,6 @@
+# Version 0.2.x
+* Testing CI
+
 # Version 0.2.4
 * Implements a blacklist of values that are to be returned but not cached.
 * Clean up how `safe_columns` is passed along in the function environment.
