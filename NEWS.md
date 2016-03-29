@@ -1,3 +1,6 @@
+# Version 0.2.5
+* Store table metadata to be able to backtrace the salts for cached functions.
+
 # Version 0.2.4
 * Implements a blacklist of values that are to be returned but not cached.
 * Clean up how `safe_columns` is passed along in the function environment.
