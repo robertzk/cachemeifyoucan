@@ -12,11 +12,23 @@ META_COLS_TYPE <- list(last_cached_at = 'text')
 #'
 #' @param prefix character. Prefix.
 #' @param salt list. Salt for the table name.
+#' @param register. logical. Register table metadata.
+#' @param dbconn SQLConnection. A database connection.
 #' @return the table name. This will just be \code{"prefix_"}
 #'   appended with the MD5 hash of the digest of the \code{salt}.
-table_name <- function(prefix, salt) {
-  tolower(paste0(prefix, "_", digest::digest(salt)))
+table_name_ <- function(prefix, salt, register. = FALSE, dbconn = NULL) {
+  hash <- digest::digest(salt)
+  tbl_name <- tolower(paste0(prefix, "_", hash))
+  if(isTRUE(register.) && !is.null(dbconn)) {
+    track_cache_salt_memoised(dbconn, tbl_name, salt)
+  }
+  tbl_name
 }
+
+get_table_name <- memoise::memoise(table_name_)
+
+# TODO: Depricate in favor of get_table_name
+table_name <- get_table_name
 
 #' Fetch the map of column names.
 #'
