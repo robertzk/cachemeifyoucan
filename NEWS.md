@@ -1,3 +1,6 @@
+# Version 0.2.4.1
+* Re-replaces `dplyr::bind_rows` with `plyr::rbind.fill` because `plyr::rbind.fill` allows the combination of dataframes with alike content but different classes (e.g., "FALSE" and FALSE), which happens due to type coercion the cached data.
+
 # Version 0.2.4
 * Implements a blacklist of values that are to be returned but not cached.
 * Clean up how `safe_columns` is passed along in the function environment.
