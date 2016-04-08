@@ -417,8 +417,17 @@ execute <- function(fcn_call, keys) {
   ## Actually compute for the uncached keys
   cached_data <- compute_cached_data(fcn_call, cached_keys)
 
-  data <- dplyr::bind_rows(uncached_data, cached_data)
-  class(data) <- "data.frame"  # un-dplyr
+  result <- try({
+    # Incompatible types could cause an error with bind_rows,
+    # which rbind.fill will handle gracefully below.
+    data <- dplyr::bind_rows(uncached_data, cached_data)
+    class(data) <- "data.frame" # un-dplyr
+  }, silent = TRUE)
+
+  if (is(try, "try-error")) {
+    data <- plyr::rbind.fill(uncached_data, cached_data)
+  }
+
   if (fcn_call$force) {
     ## restore column names using existing cache columns
     old_columns <- get_column_names_from_table(fcn_call)
