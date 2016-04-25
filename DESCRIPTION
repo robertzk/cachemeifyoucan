@@ -23,6 +23,8 @@ Suggests:
     knitr,
     testthatsomemore,
     batchman (>= 1.0.0.9001)
+Remotes:
+    avantcredit/dbtest@0.0.2.9002
 License: MIT
 LazyData: true
 Roxygen: list(wrap = FALSE)
