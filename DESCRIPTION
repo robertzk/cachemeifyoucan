@@ -13,7 +13,7 @@ Depends:
     R (>= 3.0.0)
 Imports:
     berdie,
-    RPostgres (>= 0.1.1),
+    RPostgres (>= 0.1.2),
     digest,
     DBI,
     plyr,
@@ -23,6 +23,10 @@ Suggests:
     knitr,
     testthatsomemore,
     batchman (>= 1.0.0.9001)
+Remotes:
+    robertzk/berdie,
+    robertzk/RPostgres@fix_type_issues2,
+    avantcredit/dbtest
 License: MIT
 LazyData: true
 Roxygen: list(wrap = FALSE)
