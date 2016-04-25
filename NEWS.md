@@ -1,3 +1,7 @@
+# Version 0.2.4.2
+
+* Add Remotes to DESCRIPTION.
+
 # Version 0.2.4.1
 * Re-replaces dplyr::bind_rows with plyr::rbind.fill because
   plyr::rbind.fill allows the combination of dataframes with
