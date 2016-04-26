@@ -14,8 +14,8 @@
 #' @export
 update_cache_salt <- function(dbconn, prefix, old_salt, new_salt) {
 
-  old_table_name <- cachemeifyoucan:::table_name(prefix, old_salt)
-  new_table_name <- cachemeifyoucan:::table_name(prefix, new_salt)
+  old_table_name <- cachemeifyoucan:::get_table_name(prefix, old_salt)
+  new_table_name <- cachemeifyoucan:::get_table_name(prefix, new_salt)
 
   old_shard_names <- get_shards_for_table(dbconn, old_table_name)
   new_shard_names <- generate_new_shard_names(new_table_name, length(old_shard_names))
