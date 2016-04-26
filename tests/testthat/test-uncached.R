@@ -1,7 +1,4 @@
 context('uncached function')
-library(DBI)
-library(dbtest)
-library(testthatsomemore)
 
 # Set up test fixture
 # Set up local database for now

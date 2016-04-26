@@ -1,8 +1,4 @@
 context("batching while caching")
-library(testthatsomemore)
-library(dbtest)
-library(DBI)
-library(batchman)
 
 db_test_that("it does not call batchman::batch when uncached keys do not exceed batch size", {
   env <- list2env(list(called = FALSE))

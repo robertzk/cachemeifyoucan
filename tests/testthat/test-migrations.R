@@ -1,9 +1,5 @@
 context('cache migrations')
 
-library(DBI)
-library(dbtest)
-library(testthatsomemore)
-
 describe("update_cache_salt", {
 
   batch_data_locale <- function(..., locale = "US") {

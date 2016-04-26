@@ -21,6 +21,7 @@ Imports:
     dbtest (>= 0.0.2.9001)
 Suggests:
     knitr,
+    testthat,
     testthatsomemore,
     batchman (>= 1.0.0.9001)
 Remotes:
