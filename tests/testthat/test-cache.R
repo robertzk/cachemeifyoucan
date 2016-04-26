@@ -81,6 +81,15 @@ describe("cache function", {
     })
   })
 
+  db_test_that("if bind_rows doesn't work, rbind.fill will be used", {
+    with_mock(`dplyr::bind_rows` = function(...) stop("bind_rows is broken!"), {
+      expect_cached({
+        df_ref <- batch_data(1:5)
+        df_cached <- cached_fcn(key = 1:5, model_version, type)
+      })
+    })
+  })
+
   db_test_that("the force. parameter triggers cache re-population", {
     # First remove all tables in the local database.
     expect_cached({
