@@ -36,6 +36,9 @@ get_shards_for_table <- function(dbconn, tbl_name) {
 }
 
 #' Generate names for new shards
+#'
+#' @param tbl_name character. The calculated table name for the function.
+#' @param numshards numeric. The number of shards to generate names for.
 generate_new_shard_names <- function(tbl_name, numshards) {
   paste0("shard", seq(numshards), "_", digest::digest(tbl_name))
 }
@@ -72,9 +75,9 @@ translate_column_names <- function(names, dbconn) {
 
 #' Convert the raw fetched database table to a readable data frame.
 #'
-#' @param df. Raw fetched database table.
+#' @param df dataframe. Raw fetched database table.
 #' @param dbconn SQLConnection. A database connection.
-#' @param key. Identifier of database table.
+#' @param key character. Identifier of database table.
 db2df <- function(df, dbconn, key) {
   df[[key]] <- NULL
   for (meta in META_COLS) df[meta] <- NULL
@@ -84,10 +87,10 @@ db2df <- function(df, dbconn, key) {
 
 #' Create index on a table
 #'
-#' @name db2df
-#' @param df. Raw fetched database table.
 #' @param dbconn SQLConnection. A database connection.
-#' @param key. Identifier of database table.
+#' @param tblname character. The name of the table to add an index to.
+#' @param key character. Identifier of database table.
+#' @param idx_name character. Name of the index.
 add_index <- function(dbconn, tblname, key, idx_name = paste0("idx_", digest::digest(tblname))) {
   if (!tolower(substring(idx_name, 1, 1)) %in% letters) {
     stop(sprintf("Invalid index name '%s': must begin with an alphabetic character", idx_name))
@@ -100,7 +103,9 @@ add_index <- function(dbconn, tblname, key, idx_name = paste0("idx_", digest::di
 #'
 #' @param dbconn SQLConnection. A database connection.
 #' @param tblname character. Database table name.
-#' @param df data frame. The data frame to insert.
+#' @param df dataframe. The data frame to insert.
+#' @param append logical. if \code{FALSE}, the prior table is overwritten.
+#' @param row.names list. Row names for the table to be written.
 dbWriteTableUntilSuccess <- function(dbconn, tblname, df, append = FALSE, row.names = NA) {
   if (DBI::dbExistsTable(dbconn, tblname) && !isTRUE(append)) {
     DBI::dbRemoveTable(dbconn, tblname)
@@ -422,8 +427,9 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns, blacklist)
 
 #' Register shards in table_shard_map
 #'
-#' @param tblname character. Table name
-#' @param shard_name character. Calculated shard names given the table name
+#' @param dbconn SQLConnection. The database connection.
+#' @param tblname character. Table name.
+#' @param shard_names character. Calculated shard names given the table name
 write_table_shard_map <- function(dbconn, tblname, shard_names) {
   ## Example:
   ##

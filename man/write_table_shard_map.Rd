@@ -7,9 +7,11 @@
 write_table_shard_map(dbconn, tblname, shard_names)
 }
 \arguments{
-\item{tblname}{character. Table name}
+\item{dbconn}{SQLConnection. The database connection.}
 
-\item{shard_name}{character. Calculated shard names given the table name}
+\item{tblname}{character. Table name.}
+
+\item{shard_names}{character. Calculated shard names given the table name}
 }
 \description{
 Register shards in table_shard_map
