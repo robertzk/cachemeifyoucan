@@ -424,7 +424,7 @@ execute <- function(fcn_call, keys) {
     class(data) <- "data.frame" # un-dplyr
   }, silent = TRUE)
 
-  if (is(try, "try-error")) {
+  if (is(result, "try-error")) {
     data <- plyr::rbind.fill(uncached_data, cached_data)
   }
 
