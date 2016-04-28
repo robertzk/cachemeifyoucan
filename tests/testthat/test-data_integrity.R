@@ -1,5 +1,4 @@
 context('data integrity')
-library(dbtest)
 
 describe("safe columns", {
   db_test_that('it can expand a table if a new column pops up in later entries', {

@@ -6,6 +6,11 @@
 \usage{
 generate_new_shard_names(tbl_name, numshards)
 }
+\arguments{
+\item{tbl_name}{character. The calculated table name for the function.}
+
+\item{numshards}{numeric. The number of shards to generate names for.}
+}
 \description{
 Generate names for new shards
 }

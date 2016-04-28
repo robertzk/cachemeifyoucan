@@ -21,13 +21,14 @@ Imports:
     dbtest (>= 0.0.2.9001)
 Suggests:
     knitr,
+    testthat,
     testthatsomemore,
     batchman (>= 1.0.0.9001)
 Remotes:
     robertzk/berdie,
     robertzk/RPostgres@fix_type_issues2,
     avantcredit/dbtest
-License: MIT
+License: MIT + file LICENSE
 LazyData: true
 Roxygen: list(wrap = FALSE)
 RoxygenNote: 5.0.1.9000

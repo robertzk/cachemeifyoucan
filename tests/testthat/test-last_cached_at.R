@@ -1,9 +1,5 @@
 context("last_cached_at")
 
-library(DBI)
-library(dbtest)
-library(testthatsomemore)
-
 describe("last_cached_at", {
   db_test_that("last_cached_at is added to table but not returned in data.frame", {
     cached_fcn <- cache(batch_data, key = c(key = "id"), c("version"), con = test_con, prefix = "batch_data")

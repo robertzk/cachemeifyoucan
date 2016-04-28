@@ -395,7 +395,7 @@ execute <- function(fcn_call, keys) {
   }
 
   if (length(uncached_keys) > fcn_call$batch_size &&
-      requireNamespace("batchman", quietly = TRUE)) {
+      ("batchman" %in% installed.packages()[,1])) {
     batched_fn <- batchman::batch(
       compute_and_cache_data, "keys",
       size = fcn_call$batch_size,

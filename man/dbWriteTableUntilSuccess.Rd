@@ -12,7 +12,11 @@ dbWriteTableUntilSuccess(dbconn, tblname, df, append = FALSE,
 
 \item{tblname}{character. Database table name.}
 
-\item{df}{data frame. The data frame to insert.}
+\item{df}{dataframe. The data frame to insert.}
+
+\item{append}{logical. if \code{FALSE}, the prior table is overwritten.}
+
+\item{row.names}{list. Row names for the table to be written.}
 }
 \description{
 Try and check dbWriteTable until success
