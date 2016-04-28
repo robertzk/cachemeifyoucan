@@ -30,7 +30,7 @@ before_script:
   - Rscript -e 'if (!require("batchman")) devtools::install_github("peterhurford/batchman")'
   - Rscript -e 'devtools::install_deps(repos = "http://cran.rstudio.com", dependencies = TRUE)'
 script:
-  - Rscript -e 'res <- try(devtools::check()); quit(save = "no", status = if (isTRUE(res)) { 0 } else { 1 }, runLast = FALSE)'
+  - Rscript -e 'res <- try(devtools::check()); quit(save = "no", status = if (length(c(res$warnings, res$errors)) == 0) { 0 } else { 1 }, runLast = FALSE)'
 after_success:
   - Rscript -e 'library(covr);coveralls()'
 notifications:
