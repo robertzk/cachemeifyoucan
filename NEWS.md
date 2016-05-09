@@ -1,3 +1,7 @@
+# Version 0.2.4.4
+
+* Fixed a bug when running a 1x1 dataframe through a blacklist.
+
 # Version 0.2.4.3
 
 * Fix a typo that would result in a crash if `dplyr::bind_rows` didn't work (instead of handing over to `rbind.fill` as intended).
