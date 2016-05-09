@@ -68,6 +68,15 @@ describe("conditional caching", {
     }, fn = return_nas, no_check = TRUE)
   })
 
+  db_test_that("NA blacklist still works on a 1x1 df", {
+    expect_cached({
+      lapply(dbListTables(test_con), function(t) dbRemoveTable(test_con, t))
+      cached_fcn <- cache(return_ids, key = c(key = "id"), salt = c("model_version", "type"), con = test_con, prefix = prefix, blacklist = list(NA))
+      expect_almost_equal(without_rownames(return_ids(1)),
+        without_rownames(cached_fcn(key = 1, model_version, type)))
+    }, fn = return_ids, no_check = TRUE)
+  })
+
   db_test_that("it won't cache FALSE if FALSE is on the blacklist", {
     expect_cached({
       lapply(dbListTables(test_con), function(t) dbRemoveTable(test_con, t))

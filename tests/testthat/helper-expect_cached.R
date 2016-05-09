@@ -2,6 +2,10 @@ expect_almost_equal <- function(..., tolerance = 1e-5) {
   expect_equal(..., tolerance = tolerance)
 }
 
+return_ids <- function(key, model_version = "model_test", type = "record_id") {
+  data.frame(id = key, stringsAsFactors = FALSE)
+}
+
 return_nas <- function(key, model_version = "model_test", type = "record_id") {
   data.frame(id = key, data = rep(NA_character_, length(key)), stringsAsFactors = FALSE)
 }
