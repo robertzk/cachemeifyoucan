@@ -1,9 +1,6 @@
 context("batching while caching")
-library(testthatsomemore)
-library(DBI)
-library(batchman)
 
-test_that("it does not call batchman::batch when uncached keys do not exceed batch size", {
+db_test_that("it does not call batchman::batch when uncached keys do not exceed batch size", {
   env <- list2env(list(called = FALSE))
   package_stub("batchman", "batch", function(fn, ...) { env$called <- TRUE; fn }, {
     expect_cached({
@@ -14,7 +11,7 @@ test_that("it does not call batchman::batch when uncached keys do not exceed bat
   })
 })
 
-test_that("it calls batchman::batch when uncached keys exceed batch size", {
+db_test_that("it calls batchman::batch when uncached keys exceed batch size", {
   env <- list2env(list(called = FALSE))
   package_stub("batchman", "batch", function(fn, ...) { env$called <- TRUE; fn }, {
     expect_cached({

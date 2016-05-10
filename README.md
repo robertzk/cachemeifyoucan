@@ -40,13 +40,14 @@ cache: # We only support postgres for now. Make sure you have instaled
   adapter: PostgreSQL
   host: localhost     # Or your database host
   dbname: name        # Name of the caching database  
-  user: username      # The user name for the database connection 
+  user: username      # The user name for the database connection
   password: password  # The password for the database connection
 ```
 
 After this setup, calling something like `cached_amazon_reviews(c(1, 2))`
 twice will cause the second call to use the database caching layer, speeding
 up calls that ask for already-computed primary keys.
+
 
 # Installation
 
@@ -60,6 +61,7 @@ devtools::install_github("robertzk/cachemeifyoucan")
 
 When using the database caching features, you will need to setup a
 `database.yml` file as in the example above.
+
 
 # Further examples and features
 
@@ -238,6 +240,52 @@ wrap_sql_table <- function(table_name, yr, mth, dbname = 'default') {
   grab_sql_table(table_name = table_name, year = yr, month = mth, dbname = dbname)
 }
 ```
+
+
+# Debugging
+
+Sometimes it might be interesting to take a look at the underlying database
+tables for debugging purposes. However, the contents of the database are
+somewhat obfuscated. If you set `cachemeifyoucan.debug` option to TRUE will
+every time you execute a cached function you will see some additional
+metadata printed out, helping you navigate the database.
+An example output looks like this:
+
+```
+Using table name: amazon_data_c3204c0a47beb9238a787058d4f03834
+Shard dimensions:
+  shard1_f8e8e2b41ac5c783d0954ce588f220fc: 45 rows * 308 columns
+11 cached keys
+5 uncached keys
+```
+
+## safe_columns
+
+If you have trouble with your cache ending up writing additional columns when
+this isn't supposed to be happening (e.g., an event that should be triggering
+cache invalidation), you can use `safe_columns = TRUE` as a parameter to `cache`
+in order to error instead of writing additional columns.
+
+Additionally, you can pass a function as `safe_columns = fn` as long as that
+function takes no arguments and returns `TRUE`.  This function will then be called
+when the error occurs.
+
+For example, you can debug a safe columns failure with:
+
+```R
+cache(..., safe_columns = function() { browser(); TRUE })
+```
+
+
+## Blacklist and Conditional Caching
+
+You can specify a blacklist of values you don't want to cache.  If any value to be cached matches the blacklist, it will be returned but not cached.
+
+For example, if you don't want to cache any `NA` values, you can specify `blacklist = list(NA)`.
+
+For another example, let's assume you're trying to cache whether a customer has bought a product from you in the past.  You always want to cache `TRUE` forever, because once a customer purchases they will always forever be a repeat purchaser.  But you never want to cache `FALSE` because at any time they could buy a product and become a repeat purchaser.  We can solve this via `blacklist = list("FALSE")` (note that `FALSE` is a character, this is because CMIYC doesn't support logicals yet).  This will prevent `FALSE` from getting cached while caching `TRUE`.
+
+
 
 # Testing
 

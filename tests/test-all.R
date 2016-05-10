@@ -1,3 +1,7 @@
 library(testthat)
 library("cachemeifyoucan")
+library(DBI)
+library(dbtest)
+library(batchman)
+library(testthatsomemore)
 test_check("cachemeifyoucan")

@@ -1,3 +1,75 @@
+# Version 0.2.4.3
+
+* Fix a typo that would result in a crash if `dplyr::bind_rows` didn't work (instead of handing over to `rbind.fill` as intended).
+
+# Version 0.2.4.2
+
+* Add Remotes to DESCRIPTION.
+
+# Version 0.2.4.1
+* Re-replaces dplyr::bind_rows with plyr::rbind.fill because
+  plyr::rbind.fill allows the combination of dataframes with
+  alike content but different classes (e.g., "FALSE" and FALSE),
+  which happens due to type coercion the cached data.
+
+# Version 0.2.4
+* Implements a blacklist of values that are to be returned but not cached.
+* Clean up how `safe_columns` is passed along in the function environment.
+
+# Version 0.2.3.6
+* Fix `last_cached_at` bug for existing shards.
+
+# Version 0.2.3.5
+* Fix `safe_column` logic to do what it actually intended.
+
+# Version 0.2.3.4
+* Add `last_cached_at` column in each shard.
+
+# Version 0.2.3.3
+* Update the update_cache_salt utility to be more proof.
+
+# Version 0.2.3.2
+* Add a utility to update cache salts.
+
+# Version 0.2.3.1
+* Switched to using dbtest::db_test_that from the latest version of dbtest.
+
+# Version 0.2.3
+* Adds `safe_columns`, which, when TRUE will crash when (a) column tables already exist for a given cache and (b) new columns are found and added.
+* Restructures the codebase to allow this hard crash to not be discarded by the myriad of `try` blocks.
+
+# Version 0.2.2
+* Moved the db testing infrastructure to another package, syberia/dbtest.
+
+# Version 0.2.1.4-6
+* Use batchman parallelism and add `dry.` parameter to `cache`.
+
+# Version 0.2.1.3
+
+* Using `double precision` types during appends, as well as
+  correctly setting database types upon table creation due
+  to RPostgres bug.
+
+# Version 0.2.1.2
+
+* Numeric values were being recorded using the `real` data type,
+  which only supports [6 digits](http://www.postgresql.org/docs/9.1/static/datatype-numeric.html)
+  of precision. This was fixed by switching these column types to
+  the `numeric` data type.
+
+# Version 0.2.1.1
+
+* Restore column names from existing cache db when using `force.`.
+
+# Version 0.2.1
+
+* Debug mode, triggered by `cachemeifyoucan.debug` option. Set it to true
+  to see the gory metadata internals of underlying postgres tables.
+
+# Version 0.2.0.10
+
+* Ensure uniqueness of the response of the caching layer.
+
 # Version 0.2.0.9
 
 * On second thought, don't store the shards in legacy cache

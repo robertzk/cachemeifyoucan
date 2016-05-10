@@ -48,6 +48,17 @@
 #'
 #'   Note that the \href{http://github.com/peterhurford/batchman}{batchman}
 #'   package should be installed for batching to take effect.
+#' @param safe_columns logical or function.  If safe_columns = \code{TRUE}
+#'   and a caching call would add additional columns for an already existing
+#'   cache with already existing columns, the function will instead crash.
+#'   If safe_columns is a function, that function will be called.  The function
+#'   must return /code{TRUE} for this to work.  Also the function will be called
+#'   with no arguments.  This is mainly so you can write your own error message.
+#'   If safe_columns is /code{FALSE}, the additional columns will be added.
+#'   Defaults \code{FALSE}.
+#' @param blacklist list. Any elements in this list will be blocked from caching.
+#'   This is useful for implementing a conditional cache or adding more safety around
+#'   your caching layer.  Defaults to \code{NULL}, no blacklist.
 #' @return A function with a caching layer that does not call
 #'   \code{uncached_function} with already computed records, but retrieves
 #'   those results from an underlying database table.
@@ -205,28 +216,51 @@
 #' wrap_sql_table <- function(table_name, yr, mth, dbname = 'default') {
 #'   grab_sql_table(table_name = table_name, year = yr, month = mth, dbname = dbname)
 #' }
+#'
+#' ###
+#' # Debugging option `cachemeifyoucan.debug`
+#' ###
+#'
+#' Sometimes it might be interesting to take a look at the underlying database
+#' tables for debugging purposes. However, the contents of the database are
+#' somewhat obfuscated. If you set `cachemeifyoucan.debug` option to TRUE will
+#' every time you execute a cached function you will see some additional metadata
+#' printed out, helping you navigate the database. An example output looks like this:
+#'
+#' Using table name: amazon_data_c3204c0a47beb9238a787058d4f03834
+#' Shard dimensions:
+#'   shard1_f8e8e2b41ac5c783d0954ce588f220fc: 45 rows * 308 columns
+#' 11 cached keys
+#' 5 uncached keys
+#'
 #' }
 cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_function),
-                  env = "cache", batch_size = 100) {
+                  env = "cache", batch_size = 100, safe_columns = FALSE, blacklist = NULL) {
   stopifnot(is.function(uncached_function),
     is.character(prefix), length(prefix) == 1,
     is.character(key), length(key) > 0,
-    is.atomic(salt) || is.list(salt),
-    is.numeric(batch_size))
+    is.atomic(salt) || is.list(salt), is.numeric(batch_size),
+    (is.logical(safe_columns) || is.function(safe_columns)),
+    (is.list(blacklist) || is.null(blacklist)))
 
   cached_function <- new("function")
 
   ## Retain the same formal arguments as the base function.
   formals(cached_function) <- formals(uncached_function)
 
-  ## Check "force." name collision
-  if ("force." %in% names(formals(cached_function))) {
-    stop(sQuote("force."), " is a reserved argument in caching layer, ",
-         "collision with formals in the cached function.", call. = FALSE)
-  }
+  ## Check "force.", "dry." name collision
+  lapply(c("force.", "dry."), function(x) {
+    if (x %in% names(formals(cached_function))) {
+      stop(sQuote(x), " is a reserved argument in cachemeifyoucan layer, ",
+      "collision with formals in the cachemeifyoucan function.", call. = FALSE)
+    }
+  })
 
   ## Default force. argument to be FALSE
   formals(cached_function)$force. <- FALSE
+
+  ## Default dry. argument to be FALSE
+  formals(cached_function)$dry. <- FALSE
 
   ## Inject some values we will need in the body of the caching layer.
   environment(cached_function) <-
@@ -234,6 +268,8 @@ cache <- function(uncached_function, key, salt, con, prefix = deparse(uncached_f
       , `_uncached_function` = uncached_function, `_con` = NULL
       , `_con_build` = c(list(con), if (!missing(env)) list(env))
       , `_env` = if (!missing(env)) env
+      , `_blacklist` = blacklist
+      , `_safe_columns` = safe_columns
       , `_batch_size` = batch_size
       ),
       parent = environment(uncached_function))
@@ -268,9 +304,12 @@ build_cached_function <- function(cached_function) {
     raw_call <- match.call()
     ## Strip function name but retain arguments.
     call     <- as.list(raw_call[-1])
-    ## Strip away the force. parameter, which is reserved.
-    is_force <- eval.parent(call$force.)
+
+    ## Strip away the `dry.` and `force.` parameter, which are reserved.
+    is_force <- isTRUE(eval.parent(call$force.))
+    is_dry <- isTRUE(eval.parent(call$dry.))
     call$force. <- NULL
+    call$dry. <- NULL
 
     ## Evaluate function call parameters in the calling environment
     for (name in names(call)) {
@@ -291,24 +330,33 @@ build_cached_function <- function(cached_function) {
     tbl_name <- cachemeifyoucan:::table_name(`_prefix`, true_salt)
 
     ## Check database connection and reconnect if necessary
-    if (is.null(`_con`) || !cachemeifyoucan:::is_db_connected(`_con`)) {
+    if (is.null(`_con`) || !dbtest::is_db_connected(`_con`)) {
       if (!is.null(`_con_build`[[1]])) {
-        `_con` <<- do.call(cachemeifyoucan:::build_connection, `_con_build`)
+        `_con` <<- do.call(dbtest::build_connection, `_con_build`)
       } else {
         stop("Cannot re-establish database connection (caching layer)!")
       }
     }
 
     ## Check whether **force.** was set
-    if (isTRUE(is_force)) {
+    if (is_force) {
       force. <- TRUE
       message("`force.` detected. Overwriting cache...\n")
     } else force. <- FALSE
 
-    cachemeifyoucan:::execute(
-      cachemeifyoucan:::cached_function_call(`_uncached_function`, call,
-        parent.frame(), tbl_name, `_key`, `_con`, force., `_batch_size`)
-    )
+    fcn_call <- cachemeifyoucan:::cached_function_call(`_uncached_function`, call,
+        parent.frame(), tbl_name, `_key`, `_con`, force., `_batch_size`,
+        `_safe_columns`, `_blacklist`)
+
+    ## Grab the all keys
+    keys <- fcn_call$call[[fcn_call$key]]
+
+    ## Log cache metadata if in debug mode
+    if (is_dry) {
+      cachemeifyoucan:::debug_info(fcn_call, keys)
+    } else {
+      cachemeifyoucan:::execute(fcn_call, keys)
+    }
   })
 
   class(cached_function) <- append("cached_function", class(cached_function))
@@ -316,22 +364,18 @@ build_cached_function <- function(cached_function) {
 }
 
 ## A helper function to execute a cached function call.
-execute <- function(fcn_call) {
-  ## Grab the new/old keys
-  keys <- fcn_call$call[[fcn_call$key]]
-
-  uncached_keys <- if (fcn_call$force) {
-    remove_old_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
-    keys
-  } else {
-    get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
-  }
+execute <- function(fcn_call, keys) {
 
   ## If some keys were populated by another process, we will keep track of those
   ## so that we do not have to duplicate the caching effort.
   intercepted_keys <- list2env(list(keys = integer(0)))
 
-  compute_and_cache_data <- function(keys) {
+  compute_and_cache_data <- function(keys, overwrite = FALSE) {
+
+    if (isTRUE(overwrite)) {
+      remove_old_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+    }
+
     ## Re-query which keys are not cached, since someone else could have
     ## populated them in parallel (if another user requested the same IDs).
     uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
@@ -339,12 +383,19 @@ execute <- function(fcn_call) {
     keys <- uncached_keys
     if (!length(keys)) return(data.frame())
     uncached_data <- compute_uncached_data(fcn_call, keys)
-    try_write_data_safely(fcn_call$con, fcn_call$table, uncached_data, fcn_call$output_key)
+    write_data_safely(fcn_call$con, fcn_call$table,
+      uncached_data, fcn_call$output_key, fcn_call$safe_columns, fcn_call$blacklist)
     uncached_data
   }
 
+  if (fcn_call$force) {
+    uncached_keys <- keys
+  } else {
+    uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+  }
+
   if (length(uncached_keys) > fcn_call$batch_size &&
-      requireNamespace("batchman", quietly = TRUE)) {
+      ("batchman" %in% installed.packages()[,1])) {
     batched_fn <- batchman::batch(
       compute_and_cache_data, "keys",
       size = fcn_call$batch_size,
@@ -353,36 +404,105 @@ execute <- function(fcn_call) {
       retry = 3,
       stop = TRUE
     )
-    uncached_data <- batched_fn(uncached_keys)
+    uncached_data <- batched_fn(uncached_keys, fcn_call$force)
   } else {
-    uncached_data <- compute_and_cache_data(uncached_keys)
+    uncached_data <- compute_and_cache_data(uncached_keys, fcn_call$force)
   }
 
   ## Since computing and caching data may take a long time and some of the
   ## keys may have been populated by a different R process (in case of parallel)
   ## cache requests, we need to query *now* which keys are cached.
   cached_keys <- Reduce(setdiff, list(keys, uncached_keys, intercepted_keys$keys))
+
+  ## Actually compute for the uncached keys
   cached_data <- compute_cached_data(fcn_call, cached_keys)
 
-  data <- plyr::rbind.fill(uncached_data, cached_data)
+  result <- try({
+    # Incompatible types could cause an error with bind_rows,
+    # which rbind.fill will handle gracefully below.
+    data <- dplyr::bind_rows(uncached_data, cached_data)
+    class(data) <- "data.frame" # un-dplyr
+  }, silent = TRUE)
+
+  if (is(result, "try-error")) {
+    data <- plyr::rbind.fill(uncached_data, cached_data)
+  }
+
+  if (fcn_call$force) {
+    ## restore column names using existing cache columns
+    old_columns <- get_column_names_from_table(fcn_call)
+    tmp_df <- setNames(data.frame(matrix(ncol = length(old_columns), nrow = 0)), old_columns)
+    ## rbind.fill with a 0-row dataframe will set the missing columns to NA, just what we want
+    data <- plyr::rbind.fill(data, tmp_df)
+  }
   ## This seems to cause a bug.
   ## Have to sort to conform with order of keys.
   data[order(match(data[[fcn_call$output_key]], keys), na.last = NA), , drop = FALSE]
 }
 
-try_write_data_safely <- function(...) {
-  try(write_data_safely(...))
+debug_info <- function(fcn_call, keys) {
+  uncached_keys <- get_new_key(fcn_call$con, fcn_call$table, keys, fcn_call$output_key)
+  cached_keys <- setdiff(keys, uncached_keys)
+
+  shard_names <- get_shards_for_table(fcn_call$con, fcn_call$table)
+  shard_info <- lapply(shard_names, function(name) {
+    if (DBI::dbExistsTable(fcn_call$con, name)) {
+      num_rows <- DBI::dbGetQuery(fcn_call$con, paste0("SELECT count(*) from ", name))[1, 1]
+      query <- paste0("select count(column_name) from information_schema.columns where table_name='", name, "'")
+      num_cols <- DBI::dbGetQuery(fcn_call$con, query)[1, 1]
+      paste0('  ', name, ': ', num_rows, ' rows * ', num_cols, ' columns')
+    } else {
+      paste0('  ', name, ': new shard')
+    }
+  })
+
+  if (isTRUE(getOption('cachemeifyoucan.debug'))) {
+    msg <- paste(
+      c(
+        paste0("Using table name: ", fcn_call$table),
+        "Shard dimensions:",
+        shard_info,
+        paste0(length(cached_keys)  , " cached keys"),
+        paste0(length(uncached_keys), " uncached keys")
+      ),
+      collapse = "\n"
+    )
+    message(msg)
+  }
+
+  list(
+    cached_keys = cached_keys,
+    uncached_keys = uncached_keys,
+    shard_names = shard_names,
+    table_name = fcn_call$table
+  )
 }
 
 compute_uncached_data <- function(fcn_call, uncached_keys) {
   error_fn(data_injector(fcn_call, uncached_keys, FALSE))
 }
 
+get_column_names_from_table <- function(fcn_call) {
+  ## Fetch one row from each corresponding shard
+  ## omitting the id column
+  ## and return a vector of column names
+  shards <- get_shards_for_table(fcn_call$con, fcn_call$table)
+  lst <- lapply(shards, function(shard) {
+    df <- if (DBI::dbExistsTable(fcn_call$con, shard))
+      DBI::dbGetQuery(fcn_call$con, paste0("SELECT * from ", shard, " LIMIT 1"))
+    else data.frame()
+    as.character(setdiff(colnames(df), c(fcn_call$output_key, META_COLS)))
+  })
+  ## We don't really have to unique, but better safe than sorry!
+  unique(c(fcn_call$output_key, translate_column_names(unlist(lst), fcn_call$con)))
+}
+
 compute_cached_data <- function(fcn_call, cached_keys) {
   error_fn(data_injector(fcn_call, cached_keys, TRUE))
 }
 
-cached_function_call <- function(fn, call, context, table, key, con, force, batch_size) {
+cached_function_call <- function(fn, call, context, table, key, con, force, batch_size,
+                                 safe_columns, blacklist) {
   # TODO: (RK) Handle keys of length more than 1
   if (is.null(names(key))) {
     output_key <- key
@@ -391,7 +511,8 @@ cached_function_call <- function(fn, call, context, table, key, con, force, batc
     key <- names(key)
   }
   structure(list(fn = fn, call = call, context = context, table = table, key = key,
-                 output_key = output_key, con = con, force = force, batch_size = batch_size),
+                 output_key = output_key, con = con, force = force, batch_size = batch_size,
+                 safe_columns = safe_columns, blacklist = blacklist),
     class = 'cached_function_call')
 }
 
@@ -416,7 +537,7 @@ data_injector_cached <- function(fcn_call, keys) {
   ## Now we have to merge all the data.frames in the list into one and return.
   ## Notice that these data frames have different column names (that's the whole point of
   ## our columnar sharding), except for the key by which we query.
-  shards <- get_shards_for_table(fcn_call$con, fcn_call$table)[[1]]
+  shards <- get_shards_for_table(fcn_call$con, fcn_call$table)
   lst <- lapply(shards, function(shard) read_df_from_a_shard(fcn_call, keys, shard))
   if (length(unique(vapply(lst, NROW, integer(1)))) > 1) {
     warning("cachemeifyoucan detected an integrity error: All shards should ",
