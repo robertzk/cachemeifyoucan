@@ -1,6 +1,6 @@
 # This function gives deterministic output for each key.
 batch_data <- function(key, model_version = "model_test", type = "record_id",
-  switch = FALSE, flip = integer(0), add_column = FALSE) {
+  switch = FALSE, flip = integer(0), add_column = FALSE, na = FALSE) {
   original <- Reduce(rbind, lapply(key, function(key) {
     seed <- as.integer(paste0("0x", substr(digest(paste(key, model_version, type)), 1, 6)))
     set.seed(seed)
@@ -13,6 +13,12 @@ batch_data <- function(key, model_version = "model_test", type = "record_id",
   }
   if (add_column) {
     ret$new_col <- 1
+  }
+  if (isTRUE(na)) {
+    ret$y <- NA_character_
+  }
+  if (identical(na, "all")) {
+    ret[, colnames(ret) != "id"] <- NA_character_
   }
   ret
 }

@@ -37,11 +37,11 @@ return_mix_false <- function(key, model_version = "model_test", type = "record_i
   data.frame(id = key, data = ifelse(key %% 2 == 0, "value", FALSE), stringsAsFactors = FALSE)
 }
 
-expect_cached <- function(expr, no_check = FALSE, fn = batch_data) {
+expect_cached <- function(expr, no_check = FALSE, fn = batch_data, ...) {
   id_key <- "id"
   cached_fcn <- cache(fn,
     key = c(key = id_key), c("model_version", "type"),
-    con = test_con, prefix = prefix)
+    con = test_con, prefix = prefix, ...)
   eval(substitute(expr), envir = environment())
 
   shards <- cachemeifyoucan:::get_shards_for_table(test_con,
