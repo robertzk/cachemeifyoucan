@@ -299,7 +299,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns, blacklist)
     ## Store a copy of the ID columns (ending with '_id')
     id_cols_ix <- which(is.element(colnames(df), id_cols))
     colnames(df) <- get_hashed_names(colnames(df))
-    df[, id_cols] <- df[, id_cols_ix]
+    df[, id_cols] <- df[id_cols_ix]
 
     ## Convert some types to character so they go in the DB properly.
     to_chars <- unname(vapply(df, function(x) is.factor(x) || is.ordered(x) || is.logical(x), logical(1)))
@@ -399,7 +399,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns, blacklist)
       if (sum(missing_cols) > 0) {
         raw_names <- translate_column_names(colnames(one_row)[missing_cols], dbconn)
         stopifnot(is.character(raw_names))
-        df[, raw_names] <- lapply(sapply(one_row[, missing_cols], class), as, object = NA)
+        df[, raw_names] <- lapply(sapply(one_row[missing_cols], class), as, object = NA)
       }
 
       write_column_hashed_data(df, tblname, append = TRUE)
