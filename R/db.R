@@ -284,7 +284,7 @@ write_data_safely <- function(dbconn, tblname, df, key, safe_columns, blacklist)
     if (length(blacklist) > 0L) {
       df_without_id <- df[-which(names(df) == key)]  # Don't blacklist on id.
       if (any(is.na(blacklist))) {
-        df <- df[apply(!is.na(df_without_id), 1, all), , drop = FALSE]
+        df <- df[!apply(is.na(df_without_id), 1, all), , drop = FALSE]
         blacklist <- blacklist[!is.na(blacklist)]
       }
       if (length(blacklist) > 0L) {

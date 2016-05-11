@@ -5,6 +5,26 @@ context('cache function')
 # https://github.com/hadley/dplyr/blob/master/vignettes/notes/postgres-setup.Rmd
 describe("cache function", {
 
+   db_test_that("blacklisting NAs retains caching when values are NA", {
+     expect_cached(blacklist = list(NA), {
+       df_ref <- batch_data(1:5, na = TRUE)
+       df_cached <- cached_fcn(key = 1:5, model_version, type, na = TRUE) 
+       # Rows with a single NA value should have been cached.
+       df_cached <- cached_fcn(key = 1:5, model_version, type) 
+       expect_true(any(is.na(df_cached)))
+     })
+   })
+
+   db_test_that("blacklisting NAs does not retain caching when all rows are NA", {
+     expect_cached(blacklist = list(NA), {
+       df_ref <- batch_data(1:5)
+       df_cached <- cached_fcn(key = 1:5, model_version, type, na = "all")
+       # Rows with all NA value should not have been cached.
+       df_cached <- cached_fcn(key = 1:5, model_version, type)
+       expect_false(any(is.na(df_cached)))
+     })
+   })
+
    db_test_that("calling the cached function for the first time populated a new table", {
      # First remove all tables in the local database.
      expect_cached({
@@ -91,7 +111,7 @@ describe("cache function", {
     # First remove all tables in the local database.
     expect_cached({
       df_ref <- batch_data(1:5)
-      package_stub("cachemeifyoucan", "write_data_safely", function(...) {
+      testthatsomemore::package_stub("cachemeifyoucan", "write_data_safely", function(...) {
         stop("Caching layer should not be used")
       }, {
         expect_error(df_cached <- cached_fcn(key = 1:5, model_version, type, force. = FALSE),
@@ -100,4 +120,6 @@ describe("cache function", {
       df_cached <- cached_fcn(key = 1:5, model_version, type, force. = TRUE)
     })
   })
+
 })
+
