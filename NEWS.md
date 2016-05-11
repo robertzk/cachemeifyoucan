@@ -1,3 +1,8 @@
+# Version 0.2.4.6
+
+* If the blacklist contains `NA`, only prevent caching rows that have
+  all missing values.
+
 # Version 0.2.4.5
 
 * Fixed a few places where we should have used `drop = FALSE`.
