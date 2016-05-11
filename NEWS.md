@@ -1,3 +1,7 @@
+# Version 0.2.4.5
+
+* Fixed a few places where we should have used `drop = FALSE`.
+
 # Version 0.2.4.4
 
 * Fixed a bug when running a 1x1 dataframe through a blacklist.
