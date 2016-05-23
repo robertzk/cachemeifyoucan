@@ -574,3 +574,19 @@ error_fn <- function(data) {
   }
   data
 }
+
+#' Run an expression without any cachemeifyoucan caching layers.
+#'
+#' @note This is not equivalent to the \code{force.} parameter in cached
+#'    functions.
+#' @param expr An expression to execute without any caching layers.
+#' @return the result of the expression.
+#' @examples \dontrun{
+#' without_cache(some_cached_function(1:5))
+#' }
+without_cache <- function(expr) {
+  old_opts <- options(cachemeifyoucan.cache = FALSE)
+  on.exit(options(old_opts))
+  force(expr)
+}
+
