@@ -39,7 +39,7 @@ cache: # We only support postgres for now. Make sure you have instaled
        # and loaded the RPostgreSQL package.
   adapter: PostgreSQL
   host: localhost     # Or your database host
-  dbname: name        # Name of the caching database  
+  dbname: name        # Name of the caching database
   user: username      # The user name for the database connection
   password: password  # The password for the database connection
 ```
@@ -308,3 +308,5 @@ to set up the correct caching call, but the resulting performance
 benefits should be worth it.
 
 For now cachemeifyoucan works with PostgreSQL.
+
+foo bar.
