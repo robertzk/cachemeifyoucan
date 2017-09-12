@@ -26,7 +26,7 @@ Suggests:
     batchman (>= 1.0.0.9001)
 Remotes:
     robertzk/berdie,
-    robertzk/RPostgres@fix_type_issues2,
+    robertzk/RPostgres@types_and_more_info2,
     avantcredit/dbtest
 License: MIT + file LICENSE
 LazyData: true
